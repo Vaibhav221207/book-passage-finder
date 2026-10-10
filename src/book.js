@@ -16,7 +16,7 @@ export async function openBook(file,{signal,onProgress=()=>{},onPassword}={}) {
   const pdfjs=await pdfLibrary();
   let assets;
   if(typeof window!=='undefined')assets={cMapUrl:new URL('../vendor/pdfjs/cmaps/',import.meta.url).href,cMapPacked:true,standardFontDataUrl:new URL('../vendor/pdfjs/standard_fonts/',import.meta.url).href,wasmUrl:new URL('../vendor/pdfjs/wasm/',import.meta.url).href};
-  else {const {fileURLToPath}=await import('node:url');assets={standardFontDataUrl:fileURLToPath(new URL('../node_modules/pdfjs-dist/standard_fonts/',import.meta.url))};}
+  else {const {fileURLToPath}=await import('node:url');assets={standardFontDataUrl:fileURLToPath(new URL('../node_modules/pdfjs-dist/standard_fonts/',import.meta.url)).replaceAll('\\','/')};}
   const loading=pdfjs.getDocument({data:bytes,isEvalSupported:false,...assets});
   const stop=()=>{loading.destroy().catch(()=>{});};signal?.addEventListener('abort',stop,{once:true});
   loading.onPassword=async(update,reason)=>{
