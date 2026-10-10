@@ -28,3 +28,12 @@ test('PDF coordinates respect viewport rotation and stay normalized',()=>{
   assert.ok(run.bounds.y>=0 && run.bounds.y+run.bounds.height<=1);
   assert.equal(run.text,'Text');
 });
+test('inset headers and short tables do not scramble a full-width body',()=>{
+  const pages=[1,2,3].map(n=>page(n,[line('num'+n,String(16+n),.1,.13,.03),line('header'+n,'Textbook header',.2,.13,.3),line('heading'+n,'Measurement of Consistency',.1,.155,.35),
+    line('body'+n,'The consistency of a fresh mixture can be measured by several tests.',.14,.19,.72),line('next'+n,'Each method observes a different property of the mixture.',.1,.21,.76),
+    ...['A','B','C'].flatMap((t,i)=>[line('left'+n+t,t+' method',.1,.27+i*.02,.2),line('right'+n+t,t+' value',.6,.27+i*.02,.2)])]));
+  api.detectPageLabels(pages);assert.equal(pages[0].ref.printedLabel,'17');
+  const spans=api.makeSourceSpans(pages);assert.ok(spans.some(s=>s.isHeading&&s.text==='Measurement of Consistency'));
+  assert.ok(spans.some(s=>s.text==='The consistency of a fresh mixture can be measured by several tests. Each method observes a different property of the mixture.'));
+  assert.equal(spans.some(s=>s.text.includes('Textbook header')),false);
+});

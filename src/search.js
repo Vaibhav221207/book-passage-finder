@@ -1,7 +1,7 @@
 import {wordCount} from './model.js';
 const stop=new Set('a an the and or of to in on at by for with from is are be was were what why how when which who discuss describe explain give state write list compare according per as using used use given answer question show graph graphs diagram diagrams figure figures method methods test tests measure measuring measurement measurements standard standards astm indian british'.split(' '));
 const forms={measured:'measure',measures:'measure',measuring:'measure',measurement:'measure',measurements:'measure',workabilities:'workability',compacted:'compact',compacting:'compact',compaction:'compact',densities:'density'};
-export function tokens(text){return (text.toLowerCase().match(/[a-z][a-z0-9]+|\d{3,4}/g)||[]).map(t=>forms[t]|| (t.length>4&&t.endsWith('s')?t.slice(0,-1):t));}
+export function tokens(text){return (text.toLowerCase().match(/[a-z][a-z0-9]+|\d{3,4}/g)||[]).map(t=>forms[t]|| (t.length>4&&t.endsWith('s')&&!t.endsWith('ss')?t.slice(0,-1):t));}
 const meaningful=text=>tokens(text).filter(t=>!stop.has(t));
 export function buildIndex(spans){
   const df=new Map();const docs=spans.map(span=>{
@@ -18,14 +18,14 @@ function sentenceWindows(text){
   while((m=re.exec(protectedText))){const raw=text.slice(m.index,m.index+m[0].length),trim=raw.trim();if(trim)parts.push({text:trim,start:m.index+raw.indexOf(trim),end:m.index+raw.indexOf(trim)+trim.length});}
   return parts.length?parts:[{text:text.trim(),start:text.indexOf(text.trim()),end:text.trimEnd().length}];
 }
-function chooseWindow(span,budget,query){
-  if(wordCount(span.text)<=budget)return {...span,originId:span.id,selectedOffsets:{start:0,end:span.text.length}};
-  const windows=sentenceWindows(span.text).filter(w=>wordCount(w.text)<=budget&&/[.!?]$/.test(w.text));
+function chooseWindow(span,budget,query,preferLead=false){
+  if(wordCount(span.text)<=budget&&/[.!?]$/.test(span.text)&&/^[A-Z“"(]/.test(span.text))return {...span,originId:span.id,selectedOffsets:{start:0,end:span.text.length}};
+  const windows=sentenceWindows(span.text).filter(w=>wordCount(w.text)<=budget&&/[.!?]$/.test(w.text)&&/^[A-Z“"(]/.test(w.text));
   if(!windows.length)return null;
-  windows.sort((a,b)=>meaningful(b.text).filter(t=>query.has(t)).length-meaningful(a.text).filter(t=>query.has(t)).length||a.start-b.start);
+  windows.sort((a,b)=>(preferLead?0:meaningful(b.text).filter(t=>query.has(t)).length-meaningful(a.text).filter(t=>query.has(t)).length)||a.start-b.start);
   const first=windows[0];let end=first.end;
   for(const next of sentenceWindows(span.text).filter(w=>w.start>=end)){
-    if(wordCount(span.text.slice(first.start,next.end))>budget)break;end=next.end;
+    if(!/[.!?]$/.test(next.text)||wordCount(span.text.slice(first.start,next.end))>budget)break;end=next.end;
   }
   const selected={...span,id:`${span.id}:${first.start}:${end}`,originId:span.id,text:span.text.slice(first.start,end),selectedOffsets:{start:first.start,end}};
   // A selected-offset interval references the canonical source span. Geometry
@@ -37,7 +37,7 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
   const result={question,passages:[],figures:[],status:'no-match',coverageNotes:[]};
   if(!core.length){result.coverageNotes.push('Add the textbook topic to this question.');return result;}
   const known=core.filter(t=>index.df.has(t)),unknown=core.filter(t=>!index.df.has(t));
-  if(!known.length){result.coverageNotes.push('No reliable passage found for this topic.');return result;}
+  if(!known.length||(unknown.length>=known.length&&known.length<=1)){result.coverageNotes.push('No reliable passage found for this topic.');return result;}
   const N=index.docs.length,idf=t=>Math.log(1+(N-(index.df.get(t)||0)+.5)/((index.df.get(t)||0)+.5));
   const query=new Set(known);const score=doc=>known.reduce((s,t)=>{
     const f=doc.tf.get(t)||0;return s+idf(t)*(f*2.2/(f+1.2*(.25+.75*doc.length/index.average))+(doc.heading.has(t)?1.7:0));
@@ -45,38 +45,47 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
   const ranked=index.docs.map(d=>({...d,score:score(d)})).filter(d=>d.score>0).sort((a,b)=>b.score-a.score);
   if(!ranked.length)return result;
   const broad=/\b(methods|tests|ways|types|measuring|measurement|discuss)\b/i.test(question.text);
-  const anchor=ranked.find(d=>known.some(t=>d.heading.has(t))&&/measurement|methods|types|classification/i.test(d.span.heading))||ranked[0];
+  const hasProse=d=>!d.span.isHeading&&wordCount(d.span.text)>=8&&/[.!?]/.test(d.span.text);
+  const narrativeNear=d=>index.docs.some(n=>hasProse(n)&&n.span.heading===d.span.heading&&Math.abs(n.span.segments[0].page.pdfPage-d.span.segments[0].page.pdfPage)<=1);
+  const anchor=(broad?ranked.find(d=>known.some(t=>d.heading.has(t))&&/measurement|methods|types|classification/i.test(d.span.heading)&&narrativeNear(d)):null)||ranked.find(hasProse);
+  if(!anchor){result.coverageNotes.push('Only headings or fragments matched. Try a more specific topic.');return result;}
   const anchorPage=anchor.span.segments[0].page.pdfPage;
   let candidates=ranked.filter(d=>!d.span.isHeading&&!/^fig(?:ure)?\.?\s*\d/i.test(d.span.text));
   if(broad){
     const overview=index.docs.filter(d=>!d.span.isHeading&&d.span.heading===anchor.span.heading&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=2);
-    const vocabulary=new Set(overview.flatMap(d=>meaningful(d.span.text)));
-    const expanded=index.docs.filter(d=>!d.span.isHeading&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=14&&[...d.heading].some(t=>vocabulary.has(t)&&!query.has(t)));
-    const merged=new Map([...candidates,...expanded.map(d=>({...d,score:score(d)+anchor.score*.12}))].map(d=>[d.span.id,d]));
+    const enumeration=overview.filter(d=>/^\s*\(?\s*(?:[a-z]|\d+|[ivx]+)\s*\)/i.test(d.span.text));
+    const methodLabels=enumeration.map(d=>d.span.text.replace(/^\s*\(?\s*(?:[a-z]|\d+|[ivx]+)\s*\)\s*/i,'').replace(/[.]$/,'').toLowerCase().replace(/\s+/g,' ').trim());
+    const vocabulary=new Set((enumeration.length?enumeration:overview).flatMap(d=>meaningful(d.span.text)).filter(t=>!query.has(t)));
+    const anchorPosition=index.docs.findIndex(d=>d.span.id===anchor.span.id);
+    const expanded=index.docs.filter((d,i)=>i>=anchorPosition&&!d.span.isHeading&&d.span.segments[0].page.pdfPage-anchorPage<=14&&[...d.heading].some(t=>vocabulary.has(t)));
+    const scope=candidates.filter(d=>d.span.segments[0].page.pdfPage>=anchorPage&&d.span.segments[0].page.pdfPage-anchorPage<=14&&(d.span.heading===anchor.span.heading||[...d.heading].some(t=>vocabulary.has(t))));
+    const firstProse=new Map();for(const d of expanded)if(hasProse(d)&&!firstProse.has(d.span.heading))firstProse.set(d.span.heading,d.span.id);
+    const merged=new Map([...scope,...expanded].map(d=>{const facet=[...d.heading].filter(t=>vocabulary.has(t)).sort().join(' ');const named=methodLabels.includes(d.span.heading.toLowerCase().replace(/\s+/g,' ').trim());return [d.span.id,{...d,facet:facet||d.span.heading,score:score(d)+(facet?anchor.score*2:0)+(named?anchor.score:0)+(firstProse.get(d.span.heading)===d.span.id?anchor.score*.75:0)}];}));
     candidates=[...merged.values()].sort((a,b)=>b.score-a.score);
   }
   // Topic qualifiers are retrieved too, but cannot replace the topic itself.
   const qualifiers=all.filter(t=>stop.has(t)&&['astm','indian','standard','standards','british'].includes(t));
   const qualifierDocs=index.docs.filter(d=>!d.span.isHeading&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=14&&qualifiers.some(t=>d.tf.has(t)));
   const pool=[...candidates.slice(0,70),...qualifierDocs];const selected=new Set(),headings=new Set();let used=0;
-  for(let round=0;round<6&&used<wordBudget;round++){
+  for(let round=0;round<35&&used<wordBudget&&result.passages.length<7;round++){
     let best=null,bestValue=-Infinity;
     for(const doc of pool){
       if(selected.has(doc.span.id))continue;
       const distance=Math.abs(doc.span.segments[0].page.pdfPage-anchorPage);
       if(broad&&distance>14)continue;
-      const novelty=headings.has(doc.span.heading)? .25:1;
+      const novelty=headings.has(doc.facet||doc.span.heading)? .12:1;
       const near=1/(1+distance*.04);
-      const qualifierBoost=round>0&&qualifiers.length&&qualifiers.some(t=>doc.tf.has(t))&&!result.passages.some(p=>qualifiers.some(t=>tokens(p.text).includes(t)))?anchor.score*.25:0;
+      const qualifierBoost=result.passages.length>=4&&qualifiers.length&&qualifiers.some(t=>doc.tf.has(t))&&!result.passages.some(p=>tokens(p.text).includes('astm'))?anchor.score*4:0;
       const value=(doc.score||score(doc))*novelty*near+qualifierBoost;
       if(value>bestValue){best=doc;bestValue=value;}
     }
     if(!best)break;selected.add(best.span.id);
-    const remaining=wordBudget-used;const allowance=broad?Math.min(remaining,round===0?55:38):Math.min(remaining,round===0?120:80);
-    const passage=chooseWindow(best.span,allowance,query);
+    const remaining=wordBudget-used;const allowance=broad?Math.min(remaining,38):Math.min(remaining,round===0?120:80);
+    const forQualifier=result.passages.length>=4&&qualifiers.some(t=>best.tf.has(t));
+    const passage=chooseWindow(best.span,allowance,forQualifier?new Set(qualifiers):new Set([...query,...meaningful(best.span.heading)]),broad&&!forQualifier);
     if(!passage)continue;
     if(result.passages.some(p=>p.text===passage.text))continue;
-    result.passages.push(passage);used+=wordCount(passage.text);headings.add(best.span.heading);
+    result.passages.push(passage);used+=wordCount(passage.text);headings.add(best.facet||best.span.heading);
   }
   if(!result.passages.length){result.coverageNotes.push('Matches were found, but no complete short passage fits. Try a more specific question or view a source page.');return result;}
   const found=new Set(result.passages.flatMap(p=>tokens(p.text+' '+p.heading)));

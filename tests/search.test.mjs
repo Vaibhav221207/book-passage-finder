@@ -29,3 +29,13 @@ test('topic-adjacent unsupported requirement remains visibly partial',()=>{
 test('unrelated subject returns no invented answer',()=>{
   const result=search('Explain photosynthesis and chlorophyll.');assert.equal(result.status,'no-match');assert.equal(result.passages.length,0);
 });
+test('short table fragments do not masquerade as complete source sentences',()=>{
+  const fixture=[...spans,span('table','Medium consistency generally workable','Consistency',1)];const result=api.searchQuestion(api.buildIndex(fixture),{id:'q',text:'Discuss methods of measuring consistency.'});
+  assert.equal(result.passages.some(p=>p.text==='Medium consistency generally workable'),false);assert.equal(result.coverageNotes.some(n=>n.includes('discus')),false);
+});
+test('table of contents heading cannot replace the actual explanatory section',()=>{
+  const toc={...span('toc','Measurement of consistency','Measurement of consistency',99),isHeading:true};
+  const number=span('tocnum','222','Measurement of consistency',99);
+  const result=api.searchQuestion(api.buildIndex([toc,number,...spans]),{id:'q',text:'Discuss methods of measuring consistency.'});
+  assert.ok(result.passages.length>=3);assert.ok(result.passages.every(p=>p.segments[0].page.pdfPage<10));
+});

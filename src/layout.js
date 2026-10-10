@@ -19,7 +19,7 @@ function romanValue(text) {
   for(const c of text.toLowerCase().split('').reverse()){const value=values[c];total+=value<last?-value:value;last=Math.max(value,last);}return total;
 }
 export function detectPageLabels(pages) {
-  const candidates=pages.map(p=>p.runs.filter(r=>(r.bounds.y<.085||r.bounds.y>.90)&&/^(\d{1,4}|[ivxlcdm]{1,12})$/i.test(r.text.trim())).map(r=>({text:r.text.trim(),value:/^\d+$/.test(r.text.trim())?Number(r.text.trim()):romanValue(r.text.trim()),y:r.bounds.y})));
+  const candidates=pages.map(p=>p.runs.filter(r=>(r.bounds.y<.20||r.bounds.y>.88)&&/^(\d{1,4}|[ivxlcdm]{1,12})$/i.test(r.text.trim())).map(r=>({text:r.text.trim(),value:/^\d+$/.test(r.text.trim())?Number(r.text.trim()):romanValue(r.text.trim()),y:r.bounds.y})));
   pages.forEach((page,i)=>{
     if(page.ref.printedLabel!==null)return;
     const matches=candidates[i].filter(c=>{
@@ -37,16 +37,19 @@ export function unionRects(rects) {
 export function makeSourceSpans(pages,outline=[]) {
   const spans=[];let heading='',section='';
   const repeated=new Map();
-  for(const p of pages)for(const r of p.runs)if(r.bounds.y<.08||r.bounds.y>.925){const t=r.text.trim().toLowerCase();repeated.set(t,(repeated.get(t)||0)+1);}
+  for(const p of pages)for(const r of p.runs)if(r.bounds.y<.20||r.bounds.y>.90){const t=r.text.trim().toLowerCase();repeated.set(t,(repeated.get(t)||0)+1);}
   for(const page of pages){
+    const firstY=Math.min(...page.runs.filter(r=>r.text.trim()).map(r=>r.bounds.y));
     const seen=new Set();const usable=page.runs.filter(r=>{
       const t=r.text.trim();if(!t)return false;
-      if((r.bounds.y<.08||r.bounds.y>.925)&&(/^(\d+|[ivxlcdm]+)$/i.test(t)||(repeated.get(t.toLowerCase())||0)>2))return false;
+      if(t===page.ref.printedLabel&&(r.bounds.y<.20||r.bounds.y>.90))return false;
+      if(((r.bounds.y<.20&&r.bounds.y<firstY+.009)||r.bounds.y>.93)&&t.length<60&&!/[.!?]$/.test(t)&&(repeated.get(t.toLowerCase())||0)>2)return false;
       const key=`${t}:${Math.round(r.bounds.x*100)}:${Math.round(r.bounds.y*100)}`;
       if(seen.has(key))return false;seen.add(key);return true;
     });
     const sizes=usable.map(r=>r.fontSize||12).sort((a,b)=>a-b);const bodySize=sizes[Math.floor(sizes.length*.5)]||12;
-    const sorted=usable.toSorted((a,b)=>a.bounds.y-b.bounds.y||a.bounds.x-b.bounds.x);
+    const clean=usable.filter(r=>!usable.some(other=>other!==r&&other.text.trim().length>r.text.trim().length&&Math.abs(other.bounds.y-r.bounds.y)<.006&&other.bounds.x<=r.bounds.x+.005&&other.bounds.x+other.bounds.width>=r.bounds.x+r.bounds.width-.005&&other.text.includes(r.text.trim())));
+    const sorted=clean.toSorted((a,b)=>a.bounds.y-b.bounds.y||a.bounds.x-b.bounds.x);
     const lines=[];
     for(const run of sorted){
       let line=lines.find(l=>Math.abs(l.y-run.bounds.y)<Math.min(run.bounds.height*.45,.007)&&run.bounds.x-l.right<.045&&run.bounds.x>=l.left-.015);
@@ -55,7 +58,9 @@ export function makeSourceSpans(pages,outline=[]) {
     }
     // Sort reading order by columns only when both sides contain real body lines.
     const left=lines.filter(l=>l.left<.45&&l.right<.57),right=lines.filter(l=>l.left>.45);
-    const columnar=left.length>=3&&right.length>=3;
+    const bodyLine=l=>l.runs.map(r=>r.text).join('').length>25;
+    const fullWidth=lines.filter(l=>l.left<.45&&l.right>.57).length;
+    const columnar=left.filter(bodyLine).length>=4&&right.filter(bodyLine).length>=4&&fullWidth<(left.length+right.length)*.5;
     const ordered=columnar?[...lines.filter(l=>l.right>.57&&l.left<.45),...left,...right].sort((a,b)=>{
       const ca=a.right>.57&&a.left<.45?-1:(a.left>.45?1:0),cb=b.right>.57&&b.left<.45?-1:(b.left>.45?1:0);return ca-cb||a.y-b.y;
     }):lines;
@@ -71,7 +76,8 @@ export function makeSourceSpans(pages,outline=[]) {
     for(const line of ordered){
       const text=line.runs.map(r=>r.text.trim()).join(' ').replace(/\s+/g,' ').trim();
       const large=line.runs.some(r=>(r.fontSize||12)>bodySize*1.13);
-      const isHeading=text.length<110&&text.split(/\s+/).length<15&&(large||(/^[A-Z][A-Z\s()–—:-]{4,}$/.test(text)));
+      const titleCase=text.split(/\s+/).length<=10&&text.split(/\s+/).every(w=>/^(?:[A-Z][A-Za-z-]*|of|and|for|in|the|to|&)$/.test(w));
+      const isHeading=text.length<110&&text.split(/\s+/).length<15&&(large||titleCase||(/^[A-Z][A-Z\s()–—:-]{4,}$/.test(text)));
       if(isHeading){emit();heading=text; if(large&&line.runs.some(r=>(r.fontSize||12)>bodySize*1.35))section=text;
         spans.push({id:`p${page.ref.pdfPage}-h${spans.length}`,text,heading,section,isHeading:true,segments:[{page:page.ref,ranges:line.runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects:[unionRects(line.runs.map(r=>r.bounds))],method:page.method}]});continue;}
       const prev=paragraph.at(-1); const gap=prev?line.y-prev.y:0;
