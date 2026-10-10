@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Find short source passages and original diagrams in your own textbook PDF. Files are processed on your device."><title>Book Passage Finder</title><link rel="stylesheet" href="./src/styles.css"></head>
+<body>
+<a class="skip-link" href="#workspace">Skip to workspace</a>
+<header class="topbar"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">b.</span><span>Book Passage Finder</span></a><span class="local-tag"><span class="dot"></span>Files stay on your device</span></header>
+<main id="workspace">
+  <div class="intro"><div><p class="eyebrow">A LITTLE LESS PAGE FLIPPING</p><h1>Find it in<br>your book.</h1><p class="intro-copy">Short textbook passages. Real page references.<br>The original diagrams, right beside them.</p></div><div class="intro-note"><span>01 / THE SOURCE COMES FIRST</span><p>Bring your textbook<br>and your questions.</p></div></div>
+  <div class="workspace-grid">
+    <section class="input-panel" aria-label="Book and assignment">
+      <div class="step-label"><span>01</span><h2>Your textbook</h2></div>
+      <label class="book-picker" for="book-file"><span class="file-symbol" aria-hidden="true">PDF</span><strong id="book-title">Choose a textbook</strong><span id="book-detail">Select a PDF from your device</span><span class="choose-label">Browse files</span><input id="book-file" type="file" accept="application/pdf,.pdf"></label>
+      <div class="book-tools" id="book-tools" hidden><button id="save-book" class="text-button" type="button">Save on this device</button><button id="page-label" class="text-button" type="button">Correct page label</button></div>
+      <div class="saved-row" id="saved-row" hidden><label for="saved-books">Saved on this device</label><select id="saved-books"><option value="">Choose a saved book</option></select><button id="delete-saved" class="text-button" type="button">Delete saved copy</button></div>
+      <details id="ocr-tools"><summary>Scanned PDF? Recognize selected pages</summary><p id="ocr-description">OCR needs an English language download and can take longer on a phone.</p><label for="ocr-range">PDF pages to recognize</label><div class="inline-input"><input id="ocr-range" placeholder="e.g. 20-25" inputmode="text"><button id="run-ocr" type="button" class="secondary" disabled>Recognize</button></div><small>Use physical PDF page numbers. Start with a small range.</small></details>
+      <div class="panel-divider"></div>
+      <div class="step-label"><span>02</span><h2>Your questions</h2></div>
+      <label class="sr-only" for="questions">Assignment questions</label><textarea id="questions" rows="6" placeholder="Paste your assignment questions here…&#10;&#10;1. Explain…&#10;2. Discuss…"></textarea>
+      <div class="question-meta"><label class="text-button import-label" for="assignment-file">Import PDF or image<input id="assignment-file" type="file" accept="application/pdf,image/*,.pdf"></label><span id="question-count">No questions yet</span></div>
+      <p class="input-help">Number each question on a new line. You can edit imported text before searching.</p>
+      <div class="action-row"><button id="find" class="primary" type="button" disabled>Find passages <span aria-hidden="true">↗</span></button><span class="length-note">Short by default<br><strong>~200 words / question</strong></span></div>
+      <div class="progress-area" id="progress-area" hidden><div><span id="progress-label">Reading book…</span><button id="cancel" class="text-button" type="button">Cancel</button></div><progress id="progress" max="100" value="0"></progress></div>
+      <p id="message" class="message" role="status" aria-live="polite" hidden></p>
+    </section>
+    <section class="results-panel" aria-labelledby="results-heading">
+      <div class="results-top"><div><p class="eyebrow">FROM YOUR TEXTBOOK</p><h2 id="results-heading">Your passages</h2></div><button id="export" class="secondary" type="button" disabled>Download PDF</button></div>
+      <div id="empty-results" class="empty-results"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>THE RIGHT PAGE</span><i></i><i></i><i class="short-line"></i><div class="paper-highlight"></div><i></i><i class="short-line"></i><b>p.</b></div></div><h3>A source you can point to.</h3><p>Choose a book and add a question.<br>We’ll find the passages and keep the page attached.</p><div class="empty-foot">EXACT WORDS <span>·</span> ORIGINAL CROPS <span>·</span> YOUR SELECTION</div></div>
+      <div id="results" aria-live="polite"></div>
+    </section>
+  </div>
+  <footer><span>Made for finding the source.</span><p>Search runs in your browser. OCR downloads language assets. Book references reflect your uploaded edition.</p></footer>
+</main>
+<dialog id="source-dialog"><div class="dialog-head"><div><p class="eyebrow">ORIGINAL SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="source-stage"></div><div id="crop-controls"></div></dialog>
+<script type="module" src="./src/main.js"></script>
+</body></html>
