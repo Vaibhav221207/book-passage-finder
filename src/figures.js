@@ -1,5 +1,6 @@
 import {unionRects} from './layout.js';
 import {tokens} from './search.js';
+import {bookSources,getBook} from './library.js';
 
 const pageLayouts=new WeakMap();
 const generic=new Set(['concrete','cement','figure','fig','table','test','method','apparatus','equipment','mix','proportion','property','strength','value','shown','show','construction','material']);
@@ -175,7 +176,19 @@ function figureBounds(layout,caption){
   return {x:left,y:Math.min(top,box.y),width:right-left,height:Math.min(1-box.y-box.height,.008)+box.y+box.height-Math.min(top,box.y)};
 }
 
-export function suggestFigures(session,result){
+export function suggestFigures(context,result){
+  const candidates=[];
+  for(const source of bookSources(context)){
+    const session=getBook(context,source.id),passages=(result.passages||[]).filter(p=>p.segments?.some(s=>getBook(context,s.page.bookId??p.bookId)===session));
+    const local={...result,passages:passages.map(p=>({...p,segments:p.segments.filter(s=>getBook(context,s.page.bookId??p.bookId)===session)}))};
+    for(const figure of suggestInBook(session,local)){
+      if(session.id){figure.id=`${session.id}:${figure.id}`;figure.bookId=session.id;figure.page={...figure.page,bookId:session.id,bookName:figure.page.bookName||source.name};}
+      candidates.push(figure);
+    }
+  }
+  return candidates.sort((a,b)=>b.score-a.score).slice(0,6);
+}
+function suggestInBook(session,result){
   const pages=result.passages.flatMap(p=>p.segments.map(s=>s.page.pdfPage));
   const passageText=result.passages.map(p=>p.text).join(' ');
   const questionReferences=referencesIn(result.question?.text||'');

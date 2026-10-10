@@ -11,6 +11,7 @@ export async function pdfLibrary() {
 export async function openBook(file,{signal,onProgress=()=>{},onPassword}={}) {
   abortIfNeeded(signal);
   if(!file||!file.size)throw new Error('The PDF is empty. Choose a readable textbook PDF.');
+  const bookId=crypto.randomUUID(),bookName=file.name||'Textbook.pdf';
   const bytes=new Uint8Array(await file.arrayBuffer());abortIfNeeded(signal);
   if(!new TextDecoder().decode(bytes.subarray(0,1024)).includes('%PDF-'))throw new Error('This file is not a valid PDF.');
   const pdfjs=await pdfLibrary();
@@ -35,12 +36,12 @@ export async function openBook(file,{signal,onProgress=()=>{},onPassword}={}) {
       const readingViewport=page.getViewport({scale:1,rotation:0});
       const runs=text.items.filter(item=>'str'in item).map((item,i)=>itemToRun(item,`${n}-${i}`,viewport,readingViewport));
       if(runs.map(r=>r.text).join('').trim().length<20)missingTextPages.push(n);
-      pages.push({ref:{pdfPage:n,printedLabel:labels?.[n-1]??null},runs,width:viewport.width,height:viewport.height,method:'pdf-text'});
+      pages.push({ref:{bookId,bookName,pdfPage:n,printedLabel:labels?.[n-1]??null},runs,width:viewport.width,height:viewport.height,method:'pdf-text'});
       onProgress({completed:n,total:pdf.numPages,phase:'Reading book'});page.cleanup();await tick();
     }
   }catch(error){await loading.destroy();signal?.removeEventListener('abort',stop);throw error;}
   signal?.removeEventListener('abort',stop);detectPageLabels(pages);
-  const session={id:crypto.randomUUID(),filename:file.name||'Textbook.pdf',pageCount:pdf.numPages,pages,missingTextPages,spans:makeSourceSpans(pages),
+  const session={id:bookId,filename:bookName,pageCount:pdf.numPages,pages,missingTextPages,spans:makeSourceSpans(pages),
     async renderPage(pdfPage,scale=1.5,renderSignal){
       abortIfNeeded(renderSignal);const p=await pdf.getPage(pdfPage),viewport=p.getViewport({scale});
       let canvas;

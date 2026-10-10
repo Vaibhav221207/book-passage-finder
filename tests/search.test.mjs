@@ -55,3 +55,15 @@ test('a named topic includes its lead definition before repeated incidental ment
   const fixture=[span('def','Separation is the division of constituent materials into distinct parts.','Separation',1),span('later','Separation is prevented by careful proportioning. Separation may occur during transport. Separation should be avoided. Separation affects strength.','Separation',2)];
   const r=api.searchQuestion(api.buildIndex(fixture),{id:'q',text:'Define separation and identify its forms described in the book.'},{wordBudget:20});assert.ok(r.passages.some(p=>p.text.includes('division of constituent')));
 });
+
+test('expanding a shortened quotation replaces its offsets with the complete source interval',()=>{
+  const text='The workability apparatus measures resistance to penetration. The measurement helps interpret the placement of fresh concrete.',original=span('book-a:p1-0',text,'Workability',1);
+  original.bookId='book-a';original.segments[0].page.bookId='book-a';
+  const passage={...original,id:'book-a:p1-0:0:59',originId:original.id,text:'The workability apparatus measures resistance to penetration.',selectedOffsets:{start:0,end:59}};
+  const expanded=api.expandPassage(api.buildIndex([original]),passage);
+  Object.assign(passage,expanded);
+  assert.equal(passage.text,text);assert.equal(passage.originId,'book-a:p1-0');assert.equal(passage.bookId,'book-a');
+  assert.deepEqual(passage.selectedOffsets,{start:0,end:text.length});
+  assert.equal(original.text.slice(passage.selectedOffsets.start,passage.selectedOffsets.end),passage.text);
+  assert.equal(original.selectedOffsets,undefined);
+});

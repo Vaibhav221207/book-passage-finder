@@ -109,7 +109,7 @@ function referenceContext(index,question,references,wordBudget){
   const selected=new Set();let used=0;
   for(let round=0;round<7&&used<wordBudget&&result.passages.length<7;round++)for(const group of groups){
     const doc=group.find(candidate=>!selected.has(candidate.span.id));if(!doc)continue;selected.add(doc.span.id);
-    const remaining=wordBudget-used,allowance=Math.min(remaining,unique.length>1?Math.ceil(wordBudget/unique.length):120);
+    const remaining=wordBudget-used,allowance=Math.min(remaining,unique.length>1?Math.ceil(wordBudget/unique.length):Math.round(120*Math.max(1,wordBudget/200)));
     const passage=chooseWindow(doc.span,allowance,topic,!topic.size);if(!passage)continue;
     result.passages.push(passage);used+=wordCount(passage.text);
     if(result.passages.length>=7||used>=wordBudget)break;
@@ -133,7 +133,7 @@ function compositionContext(index,question,wordBudget){
   let used=0;
   for(const {doc,window} of candidates){
     if(result.passages.some(p=>p.originId===doc.span.id))continue;
-    const allowance=Math.min(80,wordBudget-used);if(wordCount(window.text)>allowance)continue;
+    const allowance=Math.min(Math.round(80*Math.max(1,wordBudget/200)),wordBudget-used);if(wordCount(window.text)>allowance)continue;
     let end=window.end;
     for(const next of sentenceWindows(doc.span.text).filter(part=>part.start>=end)){
       if(!completeSentence(next)||wordCount(doc.span.text.slice(window.start,next.end))>allowance)break;end=next.end;
@@ -207,7 +207,7 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
       if(value>bestValue){best=doc;bestValue=value;}
     }
     if(!best)break;selected.add(best.span.id);
-    const remaining=wordBudget-used;const allowance=broad?Math.min(remaining,38):Math.min(remaining,round===0?120:80);
+    const remaining=wordBudget-used,scale=Math.max(1,wordBudget/200);const allowance=broad?Math.min(remaining,Math.round(38*scale)):Math.min(remaining,Math.round((round===0?120:80)*scale));
     const forQualifier=(!broad||result.passages.length>=4)&&qualifiers.some(t=>best.tf.has(t));
     const passage=chooseWindow(best.span,allowance,forQualifier?new Set(qualifiers):new Set([...query,...meaningful(best.span.heading)]),exactTopic||broad&&!forQualifier);
     if(!passage)continue;
@@ -228,4 +228,4 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
   result.coverageNotes.push('Source matches are suggestions. Check that they cover your question.');
   return result;
 }
-export function expandPassage(index,passage){return index.docs.find(d=>d.span.id===passage.originId||d.span.id===passage.id)?.span||passage;}
+export function expandPassage(index,passage){const span=index.docs.find(d=>d.span.id===passage.originId||d.span.id===passage.id)?.span;return span?{...span,originId:span.id,selectedOffsets:{start:0,end:span.text.length}}:passage;}

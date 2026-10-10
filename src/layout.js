@@ -72,7 +72,7 @@ export function makeSourceSpans(pages,outline=[]) {
       const runs=paragraph.flatMap(l=>l.runs.toSorted((a,b)=>a.bounds.x-b.bounds.x));
       const text=runs.map(r=>r.text.trim()).join(' ').replace(/\s+/g,' ').trim();
       const rects=paragraph.map(l=>unionRects(l.runs.map(r=>r.sourceBounds)));
-      spans.push({id:`p${page.ref.pdfPage}-${spans.length}`,text,heading,section,
+      spans.push({id:`${page.ref.bookId?`${page.ref.bookId}:`:''}p${page.ref.pdfPage}-${spans.length}`,...(page.ref.bookId?{bookId:page.ref.bookId,bookName:page.ref.bookName}:{}),text,heading,section,
         segments:[{page:page.ref,ranges:runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects,method:page.method}]});paragraph=[];
     };
     for(const line of ordered){
@@ -81,7 +81,7 @@ export function makeSourceSpans(pages,outline=[]) {
       const titleCase=line.runs.some(r=>r.fontSize>=bodySize*.96)&&text.split(/\s+/).length<=10&&text.split(/\s+/).every(w=>/^(?:[A-Z][A-Za-z-]*|of|and|for|in|the|to|&)$/.test(w));
       const isHeading=text.length>=3&&text.length<110&&text.split(/\s+/).length<15&&(large||titleCase||(/^[A-Z][A-Z\s()–—:-]{4,}$/.test(text)));
       if(isHeading){emit();heading=text; if(large&&line.runs.some(r=>(r.fontSize||12)>bodySize*1.35))section=text;
-        spans.push({id:`p${page.ref.pdfPage}-h${spans.length}`,text,heading,section,isHeading:true,segments:[{page:page.ref,ranges:line.runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects:[unionRects(line.runs.map(r=>r.sourceBounds))],method:page.method}]});continue;}
+        spans.push({id:`${page.ref.bookId?`${page.ref.bookId}:`:''}p${page.ref.pdfPage}-h${spans.length}`,...(page.ref.bookId?{bookId:page.ref.bookId,bookName:page.ref.bookName}:{}),text,heading,section,isHeading:true,segments:[{page:page.ref,ranges:line.runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects:[unionRects(line.runs.map(r=>r.sourceBounds))],method:page.method}]});continue;}
       const prev=paragraph.at(-1); const gap=prev?line.y-prev.y:0;
       const prevText=prev?.runs.map(r=>r.text).join(' ')||'';
       if(prev&&(gap>.035||line.left-prev.left>.035||Math.abs(line.left-prev.left)>.25||paragraph.length>=12||(gap>.022&&/[.!?]$/.test(prevText))))emit();

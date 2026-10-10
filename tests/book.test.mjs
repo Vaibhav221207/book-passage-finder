@@ -17,6 +17,8 @@ test('actual PDF loading retains physical pages and permits disposal',async()=>{
   const file=new Blob([await doc.save()]);const progress=[];
   const session=await api.openBook(file,{onProgress:p=>progress.push(p.completed)});
   assert.equal(session.pageCount,3);assert.equal(session.pages[0].ref.pdfPage,1);
+  assert.ok(session.pages.every(page=>page.ref.bookId===session.id&&page.ref.bookName===session.filename));
+  assert.ok(session.spans.every(span=>span.bookId===session.id&&span.id.startsWith(session.id+':')));
   assert.equal(session.pages[0].ref.printedLabel,'17');assert.deepEqual(progress,[1,2,3]);
   assert.ok(session.spans.some(s=>s.text.includes('genuine source paragraph')));
   await session.dispose();assert.equal(session.pages.length,0);

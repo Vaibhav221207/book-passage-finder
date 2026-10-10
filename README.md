@@ -1,6 +1,6 @@
 # Book Passage Finder
 
-Choose your textbook PDF, paste numbered assignment questions, and find short source passages with page references. Review the original crops, confirm diagrams, and download a PDF or an individual PNG. No account, paid API or API key is required by the app.
+Add textbook PDFs, paste numbered assignment questions, and find source passages with book and page references. Review original crops, confirm diagrams, and download a PDF or PNG. Book search is free and needs no account. Optional college-level AI explanations use each visitor's own OpenRouter key and free models.
 
 ## Run locally
 
@@ -16,11 +16,12 @@ Open http://127.0.0.1:4173/. `npm.cmd test` runs the regression suite. `node scr
 
 ## Use it
 
-1. Choose a textbook PDF. Text extraction and search run in your browser.
+1. Add one or more textbook PDFs. Text extraction and search run in your browser. Each book has an independent index; search includes every open book. Select a book to save it, correct its page labels, recognize scanned pages or inspect it. Removing a book clears old results; search again.
 2. Paste questions, one numbered question per new line, or import an assignment PDF/image. The importer filters assignment titles, course labels, page numbers and repeated page headers; wrapped lines and lettered subparts stay together. It also recognizes clear prompts when OCR omits numbering punctuation. Check imported text before searching.
-3. Click **Find passages**. Quotes are short by default, around 200 words per question. Use **Review question** or **Previous / Next** to review one answer at a time. Search uses book text and headings; it does not write new answers.
-4. Expand **Show original page crop** or use **View in book** to inspect the page. Diagram and table checkboxes open a crop review before inclusion. Adjust the percentage fields, or drag with a mouse/pen, then choose **Include selected crop**. On touch screens, swipe to scroll the page and use the fields to adjust the crop. Suggested bounds need checking, especially for scanned graphics or tables that continue onto another page.
+3. Choose **Short (200)**, **Standard (300, default)** or **Detailed (450)** words, then click **Find passages**. The source budget applies across all books per question. Evidence may be shorter when it cannot support a complete answer. Use **Review question** or **Previous / Next** to review one question at a time.
+4. Expand **Show original page crop** or use **View in book** to inspect the page. Download each passage screenshot directly. Diagram and table checkboxes open a crop review before inclusion. Adjust the percentage fields, drag a new rectangle with a mouse/pen, or resize its lower-right corner. **Reset selection**, **Full page** and **2× / 3× image detail** help keep complete labels and rows. On touch screens, swipe to scroll and use the fields. Choose **Include selected crop** or **Download PNG**. Suggested bounds need checking, especially for scanned graphics or tables that continue onto another page. Exported table images fit the usable PDF page instead of shrinking into a small thumbnail.
 5. Remove unwanted passages, or use **More context** to expand one. Download the selected packet: it includes selections from every question, including those currently hidden by the question picker. Original paragraph crops can include surrounding text.
+6. For optional AI answers, expand **AI explanations**, open the linked OpenRouter key page and paste your own key into the password field. Click **Use this key**, then **Generate explanation** on a question. The draft uses selected passages, separate citation buttons and undergraduate terminology. No-match questions offer **Generate general AI explanation**; those drafts are labelled unverified and contain no book citations. Add another book or recognize scanned pages when you need textbook evidence. Generated text remains separate from exact quotations and is included in Copy/PDF actions. Changing source selections discards the old draft.
 
 For scanned pages, expand **Recognize selected pages** and enter physical PDF pages, such as `20-25`. English OCR downloads a language asset when first used and can take longer on a phone. Recognize up to 30 pages per batch. Check OCR words against the original image.
 
@@ -32,7 +33,10 @@ For scanned pages, expand **Recognize selected pages** and enter physical PDF pa
 - Printed page labels come from PDF metadata or neighboring-page evidence. Ambiguous labels stay blank; physical PDF page numbers remain available. You can correct a label.
 - Complex tables, formulas, columns and missing fonts can damage extracted reading order. Original crops preserve the source image and should be checked.
 - PDF export supports the bundled Noto Sans character set. For other scripts or unsupported symbols, use PNG downloads.
-- The app sends no textbook or question contents to a server. PDF/OCR/export libraries are self-hosted; OCR may fetch English language data from `tessdata.projectnaptha.com`. There is no analytics or document upload endpoint in the app.
+- Ordinary extraction, search, crop creation and export stay in the browser. PDF/OCR/export libraries are self-hosted; OCR may fetch English language data from `tessdata.projectnaptha.com`. There is no analytics or full-document upload endpoint.
+- **Generating an AI answer sends the question and selected passages to OpenRouter and its model provider.** General mode sends the question without textbook passages. The key stays in tab memory, is never saved in browser storage, and is cleared by Disconnect or a reload. This static app has no shared key or backend. Use a restricted personal key; do not publish keys in code, issues or chat.
+- AI uses `openrouter/free`, zero-price provider bounds, no paid fallback and no automatic retries. Free quota and availability vary; failed requests may count. See [OpenRouter's free router](https://openrouter.ai/openrouter/free/providers) and [limits](https://openrouter.ai/docs/api_reference/limits). OpenRouter account/API usage is separate from a ChatGPT subscription.
+- Citations link to supplied passages; their presence does not verify that every generated claim follows from them. Check the source. General answers are not verified against books, current standards or external references.
 - The uploaded book's edition may describe historical standards. The tool does not verify current standards or promise a professor will accept a submission.
 
 ## Deployment
