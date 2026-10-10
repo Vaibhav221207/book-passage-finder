@@ -52,9 +52,9 @@ export function makeSourceSpans(pages,outline=[]) {
     const sorted=clean.toSorted((a,b)=>a.bounds.y-b.bounds.y||a.bounds.x-b.bounds.x);
     const lines=[];
     for(const run of sorted){
-      let line=lines.find(l=>Math.abs(l.y-run.bounds.y)<Math.min(run.bounds.height*.45,.007)&&run.bounds.x-l.right<.045&&run.bounds.x>=l.left-.015);
+      let line=lines.find(l=>Math.abs(l.y-run.bounds.y)<Math.min(run.bounds.height*.45,.007)&&run.bounds.x-l.right<.045&&run.bounds.x+run.bounds.width>=l.left-.045);
       if(!line){line={runs:[],y:run.bounds.y,left:run.bounds.x,right:run.bounds.x+run.bounds.width};lines.push(line);}
-      line.runs.push(run);line.right=Math.max(line.right,run.bounds.x+run.bounds.width);
+      line.runs.push(run);line.left=Math.min(line.left,run.bounds.x);line.right=Math.max(line.right,run.bounds.x+run.bounds.width);
     }
     // Sort reading order by columns only when both sides contain real body lines.
     const left=lines.filter(l=>l.left<.45&&l.right<.57),right=lines.filter(l=>l.left>.45);
@@ -76,8 +76,8 @@ export function makeSourceSpans(pages,outline=[]) {
     for(const line of ordered){
       const text=line.runs.map(r=>r.text.trim()).join(' ').replace(/\s+/g,' ').trim();
       const large=line.runs.some(r=>(r.fontSize||12)>bodySize*1.13);
-      const titleCase=text.split(/\s+/).length<=10&&text.split(/\s+/).every(w=>/^(?:[A-Z][A-Za-z-]*|of|and|for|in|the|to|&)$/.test(w));
-      const isHeading=text.length<110&&text.split(/\s+/).length<15&&(large||titleCase||(/^[A-Z][A-Z\s()–—:-]{4,}$/.test(text)));
+      const titleCase=line.runs.some(r=>r.fontSize>=bodySize*.96)&&text.split(/\s+/).length<=10&&text.split(/\s+/).every(w=>/^(?:[A-Z][A-Za-z-]*|of|and|for|in|the|to|&)$/.test(w));
+      const isHeading=text.length>=3&&text.length<110&&text.split(/\s+/).length<15&&(large||titleCase||(/^[A-Z][A-Z\s()–—:-]{4,}$/.test(text)));
       if(isHeading){emit();heading=text; if(large&&line.runs.some(r=>(r.fontSize||12)>bodySize*1.35))section=text;
         spans.push({id:`p${page.ref.pdfPage}-h${spans.length}`,text,heading,section,isHeading:true,segments:[{page:page.ref,ranges:line.runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects:[unionRects(line.runs.map(r=>r.bounds))],method:page.method}]});continue;}
       const prev=paragraph.at(-1); const gap=prev?line.y-prev.y:0;

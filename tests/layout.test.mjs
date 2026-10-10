@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 const api = await import('../src/layout.js').catch(() => ({}));
 const line = (id,text,x,y,w=.7,h=.02,size=12) => ({id,text,bounds:{x,y,width:w,height:h},fontSize:size});
 const page = (n,runs,label=null) => ({ref:{pdfPage:n,printedLabel:label},runs,width:600,height:800,method:'pdf-text'});
+test('floating point baseline noise cannot reorder adjacent words',()=>{
+  const spans=api.makeSourceSpans([page(1,[line('a','ratio',.16,.612529691211402,.04),line('b','of density after full',.201,.6125296912114014,.4),line('c','compaction.',.16,.63)])]);assert.equal(spans[0].text,'ratio of density after full compaction.');
+});
+test('small title-case figure captions do not replace a body section heading',()=>{
+  const spans=api.makeSourceSpans([page(1,[line('a','Separation',.1,.1,.4,.03,16),line('b','The first form is separation.',.1,.2,.7,.02,12),line('c','Figure Apparatus',.3,.4,.4,.015,8),line('d','The second form is also described.',.1,.5,.7,.02,12)])]);assert.equal(spans.find(s=>s.text.includes('second form')).heading,'Separation');
+});
 test('column geometry does not merge left and right passages',()=>{
   assert.equal(typeof api.makeSourceSpans,'function','makeSourceSpans missing');
   const spans=api.makeSourceSpans([page(1,[line('a','A left column sentence.',.08,.2,.35),line('b','A right column sentence.',.56,.2,.35)])]);

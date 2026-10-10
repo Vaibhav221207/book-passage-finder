@@ -1,0 +1,42 @@
+# Book Passage Finder
+
+Choose your textbook PDF, paste numbered assignment questions, and find short source passages with page references. Review the original crops, confirm diagrams, and download a PDF or an individual PNG. No account, paid API or API key is required by the app.
+
+## Run locally
+
+Install Node.js 22 or newer, then run these commands in this folder:
+
+```powershell
+npm.cmd ci
+npm.cmd run build
+npm.cmd start
+```
+
+Open http://127.0.0.1:4173/. `npm.cmd test` runs the regression suite. `node scripts/verify-dist.mjs` checks the deployable directory.
+
+## Use it
+
+1. Choose a textbook PDF. Text extraction and search run in your browser.
+2. Paste questions, one numbered question per new line, or import an assignment PDF/image. Check imported text before searching.
+3. Click **Find passages**. Quotes are short by default, around 200 words per question. Search uses book text and headings; it does not write new answers.
+4. Use **View in book** to inspect the page. Adjust diagram crops with the percentage fields or by dragging, then include the diagrams you need. A suggestion can be wrong; inspect it before checking its box.
+5. Remove unwanted passages, or use **More context** to expand one. Download the selected packet. Original paragraph crops can include surrounding text.
+
+For scanned pages, expand **Recognize selected pages** and enter physical PDF pages, such as `20-25`. English OCR downloads a language asset when first used and can take longer on a phone. Recognize up to 30 pages per batch. Check OCR words against the original image.
+
+**Save on this device** is optional. It stores a copy in this browser's IndexedDB. The saved copy can be reopened or deleted. Private browsing, browser cleanup and device storage limits can affect persistence. Ordinary use does not save the book.
+
+## Limits and privacy
+
+- Lexical retrieval is a starting point. It may miss paraphrases, mix nearby topics or omit parts of a broad question. A source match is not a guarantee of a complete answer. Ask a more specific question and inspect the page when a result is weak.
+- Printed page labels come from PDF metadata or neighboring-page evidence. Ambiguous labels stay blank; physical PDF page numbers remain available. You can correct a label.
+- Complex tables, formulas, columns and missing fonts can damage extracted reading order. Original crops preserve the source image and should be checked.
+- PDF export supports the bundled Noto Sans character set. For other scripts or unsupported symbols, use PNG downloads.
+- The app sends no textbook or question contents to a server. PDF/OCR/export libraries are self-hosted; OCR may fetch English language data from `tessdata.projectnaptha.com`. There is no analytics or document upload endpoint in the app.
+- The uploaded book's edition may describe historical standards. The tool does not verify current standards or promise a professor will accept a submission.
+
+## Deployment
+
+`dist/` contains the static app. It can be served on any static host supporting ES modules, workers and WASM. `.openai/hosting.json` preserves this app's Sites identity. No uploaded book, assignment, saved browser data or private evaluation fixture belongs in the source repository or deployment.
+
+See `THIRD_PARTY_NOTICES.md` for dependency licenses.

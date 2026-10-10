@@ -10,6 +10,8 @@ for(const item of ['pdf.mjs','pdf.worker.mjs'])await cp(path.join(modules,'pdfjs
 for(const item of ['cmaps','standard_fonts','wasm'])await cp(path.join(modules,'pdfjs-dist',item),path.join(out,'vendor/pdfjs',item),{recursive:true});
 await cp(path.join(modules,'pdf-lib/dist/pdf-lib.min.js'),path.join(out,'vendor/pdf-lib.min.js'));
 await cp(path.join(modules,'@pdf-lib/fontkit/dist/fontkit.umd.min.js'),path.join(out,'vendor/fontkit.umd.min.js'));
+await mkdir(path.join(out,'vendor/licenses'),{recursive:true});
+for(const pkg of ['pdfjs-dist','pdf-lib','@pdf-lib/fontkit','tesseract.js','tesseract.js-core']){const label=pkg.replaceAll('/','-').replaceAll('@','');for(const name of ['LICENSE','LICENSE.md','LICENSE.txt'])try{await cp(path.join(modules,pkg,name),path.join(out,'vendor/licenses',`${label}.txt`));break;}catch(e){if(e.code!=='ENOENT')throw e;}}
 await cp(path.join(modules,'tesseract.js/dist'),path.join(out,'vendor/tesseract'),{recursive:true});
 await cp(path.join(modules,'tesseract.js-core'),path.join(out,'vendor/tesseract-core'),{recursive:true,filter:s=>!s.endsWith('.md')});
 console.log(`Static app built: ${out}`);
