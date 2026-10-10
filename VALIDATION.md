@@ -1,0 +1,35 @@
+# Verification record
+
+Verified on Windows on 10 October 2026. This is a browser-local source-passage prototype, not a complete-answer or standards-verification service.
+
+## Checks and evidence
+
+- Automated suite: 42 tests pass after the final review fixes. Tests cover extraction, rotated pages, layout, retrieval, exact sentence windows, word limits, question parsing, OCR geometry and cancellation, stale jobs, source crops, figure confirmation, Unicode PDF export, and unavailable storage.
+- A fresh independent whole-branch review reported five Important findings and one Minor. All five Important findings were reproduced by failing tests and fixed in one pass: incomplete question coverage, decimals during shortening, rotated-page reading order, empty OCR overwriting existing text, and stale printed labels after correction. The full suite passed after the fixes.
+- The supplied textbook was read locally: 647 pages, 15,082 canonical spans, no missing-text pages. A final Node extraction took 10.53 seconds and about 86 MB of Node heap. These are desktop measurements, not phone measurements or a maximum memory guarantee.
+- A private evaluation of 20 questions passed the 200-word limit and internal substring/run-range/page-label/rectangle checks for every case. Three unsupported questions returned no match. All 17 supported, deliberately complex questions returned partial coverage with warnings. This checks provenance and limits; it does not estimate general answer accuracy.
+- In the browser, the textbook loaded, a saved local copy reopened, search returned source text, and original pages displayed. Printed page 222 was checked against physical PDF page 245. Original Vee-Bee diagram pixels were manually selected on printed page 233 / PDF page 256.
+- Image OCR imported two editable questions correctly. Cancel preserved completed selections and restored the controls. The OCR language asset was already cached for the final privacy audit; a prior browser OCR run completed its first download.
+- Passage removal, PNG download, confirmed-diagram inclusion and PDF export were exercised. The final example packet contains 86 selected words and a manually confirmed diagram. All three export pages were rendered and inspected. Paragraph crops include surrounding context; some boundary lines of that context can be clipped.
+- A temporary, unpublished request-audit harness instrumented main-thread and worker fetch/XHR calls during saved-book load, search, image OCR and export. It recorded only body-free GETs for PDF/font assets, and no document/question uploads on those exercised paths. The harness was removed by a clean rebuild before packaging. Source inspection found no analytics or document upload endpoint. This is a scoped check, not a blanket audit of browser extensions or dependencies.
+- Clean distribution: 249 application/dependency assets, 51.5 MB; no textbook, assignment, private evaluation data, request-audit harness or credentials. The manifest preserves the registered Sites project identity.
+- Responsive checks use a 390 × 844 browser viewport. The clean page has no horizontal overflow; physical-device performance remains unmeasured.
+
+## Retrieval limits
+
+Lexical search can miss paraphrases, select an unrelated chapter, omit requested procedures or select a different graph. The 20-question evaluation found each of these limits. A partial label does not make an irrelevant passage useful. Students must inspect, expand and remove suggestions, and choose the appropriate figure from the source page. English OCR and complex PDF extraction can also be wrong. Neither current-standard accuracy nor instructor acceptance is promised.
+
+## Rulings made, in order
+
+1. Use an isolated new app repository and a portable ledger because this projectless chat had no existing product repository and Git Bash failed on this host. Cost: manual task and verification tracking.
+2. Use system npm.cmd because the Sites dependency installer selected a nonexistent runtime path; dependency inputs remain pinned. Cost: bypassing its host setup automation.
+3. Report desktop and emulated layout checks without claiming physical-phone performance. Cost: uncertain speed and memory use on phones.
+4. Assign browser privacy, OCR, storage and hosting integration checks to the parent; the independent reviewer did not repeat them. Cost: narrower independent coverage.
+5. Publish verifiable suggestions rather than certify all PDFs, encryption variants or complete answers/figures from a finite fixture. Cost: missed or irrelevant passages and untested PDF variants.
+6. Keep current standards, instructor acceptance and book rights outside the tool's claims; references reflect the uploaded edition. Cost: the user must independently meet course and source requirements.
+
+## Deferred minor
+
+Cancellation from the final extraction progress callback can still resolve an internal session. The app rejects the cancelled job before accepting or indexing it. This was deferred after review; the main interface guards against displaying it.
+
+No supplied textbook or private evaluation excerpts are included in this repository or deployment.
