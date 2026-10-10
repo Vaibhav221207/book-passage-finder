@@ -12,8 +12,9 @@ export async function readAssignment(file,{signal,onProgress=()=>{}}={}){
   if(file.type.startsWith('image/'))return parseQuestions(await ocrImage(file,{signal,onProgress}));
   const session=await openBook(file,{signal,onProgress});
   try{
-    let text=session.pages.map(p=>p.runs.map(r=>r.text).join(' ')).join('\n');
-    if(!text.trim()&&session.pageCount<=10){const pages=await ocrPages(session,Array.from({length:session.pageCount},(_,i)=>i+1),{signal,onProgress});text=pages.map(p=>p.runs.map(r=>r.text).join(' ')).join('\n');}
+    let text=session.pages.map(pageLines).join('\n');
+    if(!text.trim()&&session.pageCount<=10){const pages=await ocrPages(session,Array.from({length:session.pageCount},(_,i)=>i+1),{signal,onProgress});text=pages.map(pageLines).join('\n');}
     if(!text.trim())throw new Error('No readable questions found. Use an image or paste the questions.');return parseQuestions(text);
   }finally{await session.dispose();}
 }
+function pageLines(page){const lines=[];for(const run of [...page.runs].sort((a,b)=>a.bounds.y-b.bounds.y||a.bounds.x-b.bounds.x)){let line=lines.find(l=>Math.abs(l.y-run.bounds.y)<Math.min(l.height,run.bounds.height)*.45);if(!line){line={y:run.bounds.y,height:run.bounds.height,runs:[]};lines.push(line);}line.runs.push(run);}return lines.map(l=>l.runs.sort((a,b)=>a.bounds.x-b.bounds.x).map(r=>r.text).join(' ')).join('\n');}
