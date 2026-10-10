@@ -19,12 +19,14 @@ export async function openBook(file,{signal,onProgress=()=>{},onPassword}={}) {
   else {const {fileURLToPath}=await import('node:url');assets={standardFontDataUrl:fileURLToPath(new URL('../node_modules/pdfjs-dist/standard_fonts/',import.meta.url)).replaceAll('\\','/')};}
   const loading=pdfjs.getDocument({data:bytes,isEvalSupported:false,...assets});
   const stop=()=>{loading.destroy().catch(()=>{});};signal?.addEventListener('abort',stop,{once:true});
+  let passwordFailure;
   loading.onPassword=async(update,reason)=>{
-    const password=await onPassword?.({reason:reason===1?'need-password':'incorrect-password'});
-    if(!password){stop();return;}update(password);
+    try{const password=await onPassword?.({reason:reason===1?'need-password':'incorrect-password'});
+      if(!password){stop();return;}update(password);
+    }catch(error){passwordFailure=error;stop();}
   };
   let pdf;
-  try{pdf=await loading.promise;abortIfNeeded(signal);}catch(error){signal?.removeEventListener('abort',stop);abortIfNeeded(signal);throw new Error(`Unable to open this PDF. ${error.message}`);}
+  try{pdf=await loading.promise;abortIfNeeded(signal);}catch(error){signal?.removeEventListener('abort',stop);abortIfNeeded(signal);throw new Error(`Unable to open this PDF. ${passwordFailure?.message||error.message}`);}
   const pages=[],missingTextPages=[];const labels=await pdf.getPageLabels();
   try{
     for(let n=1;n<=pdf.numPages;n++){

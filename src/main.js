@@ -1,4 +1,5 @@
 import {openBook} from './book.js';import {parseQuestions,readAssignment} from './questions.js';import {ocrPages,prepareOcrUpdate} from './ocr.js';import {createController} from './session.js';import {pageName,wordCount,abortIfNeeded,resolveResultReferences} from './model.js';
+import {requestText} from './text-dialog.js';
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 let worker,abortController,currentFile,resultRevision=0;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
@@ -24,7 +25,7 @@ async function chooseBook(file){
   if(!file)return;currentFile=file;const old=state.session;state.session=null;state.results=[];resultRevision++;renderResults();old?.dispose();
   $('book-title').textContent=file.name;$('book-detail').textContent='Opening textbook…';
   await operate(async(signal)=>{
-    const session=await openBook(file,{signal,onProgress:progress,onPassword:async({reason})=>window.prompt(reason==='incorrect-password'?'Incorrect password. Enter the PDF password:':'This PDF is protected. Enter its password:')});
+    const session=await openBook(file,{signal,onProgress:progress,onPassword:({reason})=>requestText({title:reason==='incorrect-password'?'Incorrect password. Try again.':'Unlock this PDF',label:'PDF password',type:'password',submit:'Open PDF',signal})});
     try{await indexSession(session,signal);}catch(e){await session.dispose();throw e;}
     $('book-detail').textContent=`${session.pageCount} pages · ready to search`;
     $('ocr-description').textContent=session.missingTextPages.length?`${session.missingTextPages.length} pages have little or no readable text. Recognize a selected range to search them.`:'Use OCR only for pages whose text does not extract correctly. The English language download needs a connection.';
@@ -63,7 +64,7 @@ $('save-book').addEventListener('click',async()=>{try{const {saveBook}=await imp
 $('saved-books').addEventListener('change',async e=>{if(!e.target.value)return;try{const {loadSavedBook}=await import('./storage.js');await chooseBook(await loadSavedBook(e.target.value));}catch(e){message(e.message,true);}});
 $('delete-saved').addEventListener('click',async()=>{const id=$('saved-books').value;if(!id)return;const {deleteSavedBook}=await import('./storage.js');await deleteSavedBook(id);await refreshSaved();message('Saved copy deleted.');});
 async function refreshSaved(){try{const {listSavedBooks}=await import('./storage.js'),books=await listSavedBooks();$('saved-row').hidden=!books.length;$('saved-books').replaceChildren(new Option('Choose a saved book',''),...books.map(b=>new Option(b.name,b.id)));}catch{}}
-$('page-label').addEventListener('click',()=>{const n=Number(window.prompt('Which physical PDF page do you want to label?'));if(!Number.isInteger(n)||n<1||n>state.session.pageCount)return;const label=window.prompt(`Printed label on PDF page ${n} (blank removes it):`,state.session.pages[n-1].ref.printedLabel||'');if(label===null)return;state.session.pages[n-1].ref.printedLabel=label.trim()||null;resolveResultReferences(state.session,state.results);renderResults();});
+$('page-label').addEventListener('click',async()=>{const session=state.session;if(!session)return;const n=Number(await requestText({title:'Correct a printed page label',label:'Physical PDF page',type:'number',value:'1',min:1,max:session.pageCount}));if(!Number.isInteger(n)||n<1||n>session.pageCount)return;const label=await requestText({title:`Printed label for PDF page ${n}`,label:'Printed page label (blank removes it)',value:session.pages[n-1].ref.printedLabel||'',required:false,submit:'Save label'});if(label===null||state.session!==session)return;session.pages[n-1].ref.printedLabel=label.trim()||null;resolveResultReferences(session,state.results);renderResults();});
 $('close-source').addEventListener('click',()=>$('source-dialog').close());
 window.addEventListener('beforeunload',()=>{worker?.terminate();state.session?.dispose();});
 updateControls();refreshSaved();
