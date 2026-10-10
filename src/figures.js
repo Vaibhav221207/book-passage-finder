@@ -7,7 +7,7 @@ const meaningful=text=>tokens(text).filter(t=>t.length>3&&!generic.has(t)&&!/^\d
 const clamp=n=>Math.max(0,Math.min(1,n));
 const pad=(box,x=.025,y=.008)=>({x:clamp(box.x-x),y:clamp(box.y-y),width:clamp(box.x+box.width+x)-clamp(box.x-x),height:clamp(box.y+box.height+y)-clamp(box.y-y)});
 const key=(type,number)=>`${type}:${number}`;
-const referenceSentence=text=>/\b(?:is|are|was|were)\s+(?:used|shown|given|described|discussed|presented|illustrated|referred)\b/i.test(text);
+const referenceSentence=text=>/\b(?:is|are|was|were)\s+(?:used|shown|given|described|discussed|presented|illustrated|referred)\b/i.test(text)||/^(?:\([^)]*\)\s*[,;:]?\s*)?(?:also\s+|clearly\s+|further\s+)?(?:shows?|represents?|illustrates?|indicates?|gives?|depicts?|compares?)\b/i.test(text)||/^(?:\([^)]*\)\s*[,;:]?\s*)?(?:the|this|it)\b.{0,85}\b(?:shows?|shall|cannot|can|is|are)\b/i.test(text);
 
 function referencesIn(text){
   const references=new Set();
@@ -20,10 +20,12 @@ function referencesIn(text){
 
 function captionOf(line){
   const match=line.text.match(/^\s*(Fig(?:ure)?\.?|Table)\s*(\d+(?:\.\d+)*)\b[.:]?\s*(.*)$/i);
-  if(!match||referenceSentence(match[3])||/^(?:shows?|gives?|lists?|contains?|presents?|summari[sz]es?|illustrates?|provides?|is|are|was|were|can|will|has|have|indicates?|depicts?|compares?|of|in|on|as|and|from|to|with|at|below|above|respectively)\b/i.test(match[3]))return null;
+  if(!match)return null;
+  const title=match[3].replace(/^[,;)\]]+\s*/,'');
+  if(referenceSentence(title)||/^(?:shows?|gives?|lists?|contains?|presents?|summari[sz]es?|illustrates?|provides?|is|are|was|were|can|will|has|have|indicates?|depicts?|compares?|of|in|on|as|and|from|to|with|at|for|below|above|respectively|adopt|take|use|refer|see)\b/i.test(title)||/^(?:Fig(?:ure)?\.?|Tables?)\s*\d/i.test(title))return null;
   // Contents lists and sentences referring to a figure are not captions.
   if(/\.{3,}\s*\d+\s*$/.test(line.text))return null;
-  return {type:/^table/i.test(match[1])?'table':'figure',number:match[2],title:match[3],line};
+  return {type:/^table/i.test(match[1])?'table':'figure',number:match[2],title,line};
 }
 
 function makeLine(runs,sourceLine){return {runs,sourceLine,box:unionRects(runs.map(r=>r.bounds)),text:runs.map(r=>r.text.trim()).join(' ').replace(/\s+/g,' ')};}
@@ -36,12 +38,14 @@ function captionsOf(line){
   const captions=[];
   for(let i=0;i<line.runs.length;i++){
     if(!/^\s*(?:Fig(?:ure)?\.?|Table)\b/i.test(line.runs[i].text))continue;
-    const runs=[line.runs[i]];
+    const runs=[line.runs[i]];let connectedList=false;
     for(let j=i+1;j<line.runs.length;j++){
       const previous=runs.at(-1),next=line.runs[j];
-      if(next.bounds.x-previous.bounds.x-previous.bounds.width>.055||/^\s*(?:Fig(?:ure)?\.?|Table)\b/i.test(next.text))break;
+      if(next.bounds.x-previous.bounds.x-previous.bounds.width>.055)break;
+      if(/^\s*(?:Fig(?:ure)?\.?|Table)\b/i.test(next.text)){connectedList=/[,;&]\s*$/.test(previous.text);break;}
       runs.push(next);
     }
+    if(connectedList)continue;
     const caption=captionOf(makeLine(runs,line));if(caption)captions.push(caption);
   }
   return captions;
@@ -113,13 +117,21 @@ function prose(line){return columnCount(line)<3&&/[A-Za-z]{3}/.test(line.text)&&
 function tableBounds(layout,caption){
   const firstIndex=layout.lines.indexOf(caption.line.sourceLine),index=layout.lines.indexOf(caption.line.endSourceLine),box=caption.line.box;
   const isCaption=line=>layout.captions.some(c=>c.line.sourceLine===line);
+  const neighbors=layout.fragments.filter(l=>prose(l)&&l.box.y>=box.y&&l.box.y<=box.y+.5);
+  const leftProse=neighbors.filter(l=>l.box.x+l.box.width<=box.x-.025),rightProse=neighbors.filter(l=>l.box.x>=box.x+box.width+.025);
+  const columnLeft=box.x>=.45&&leftProse.length>=2?Math.max(...leftProse.map(l=>l.box.x+l.box.width))+.015:0;
+  const columnRight=box.x+box.width<=.55&&rightProse.length>=2?Math.min(...rightProse.map(l=>l.box.x))-.015:1;
+  const inColumn=line=>{const runs=line.runs.filter(r=>r.bounds.x+r.bounds.width>columnLeft&&r.bounds.x<columnRight);return runs.length?makeLine(runs,line):null;};
   function rows(direction){
     const chosen=[];let started=false,previous=direction>0?box.y+box.height:box.y,notes=false;
     for(let i=(direction>0?index:firstIndex)+direction;i>=0&&i<layout.lines.length;i+=direction){
-      const line=layout.lines[i],gap=direction>0?line.box.y-previous:previous-line.box.y-line.box.height;
-      if(isCaption(line)||gap>(started?.065:.08)||line.box.y<.035||line.box.y>.93)break;
+      const original=layout.lines[i],line=inColumn(original);if(!line)continue;
+      const gap=direction>0?line.box.y-previous:previous-line.box.y-line.box.height;
+      if(isCaption(original)||gap>(started?.065:.08)||line.box.y<.035||line.box.y>.93)break;
       const row=tableRow(line),note=direction>0&&(/^\s*(?:notes?|sources?)\s*[:.]/i.test(line.text)||(notes&&line.box.x>=chosen.at(-1).box.x-.015));
-      if(!row&&!note&&prose(line))break;
+      const repeatsReference=!started&&referencesIn(line.text).has(key(caption.type,caption.number));
+      const header=(columnCount(line)>=2||repeatsReference)&&(started||Array.from({length:3},(_,n)=>layout.lines[i+direction*(n+1)]).some(next=>next&&Math.abs(next.box.y-line.box.y)<=.1&&!isCaption(next)&&tableRow(next)));
+      if(!row&&!note&&!header&&prose(line))break;
       if(row){started=true;notes=false;}else if(note)notes=true;
       if(!started&&chosen.length>=4)break;
       chosen.push(line);previous=direction>0?line.box.y+line.box.height:line.box.y;
@@ -128,7 +140,18 @@ function tableBounds(layout,caption){
   }
   const below=rows(1),above=rows(-1);
   const selected=below.length?below:above;
-  if(selected.length)return pad(unionRects([box,...selected.map(l=>l.box)]));
+  if(selected.length){
+    const region=unionRects([box,...selected.map(l=>l.box)]),bounds=pad(region);bounds.height+=.004;
+    const beside=layout.fragments.some(l=>prose(l)&&l.box.y<region.y+region.height&&l.box.y+l.box.height>region.y&&(l.box.x+l.box.width<=region.x-.015||l.box.x>=region.x+region.width+.015));
+    if(!beside){
+      const context=layout.fragments.filter(l=>prose(l)&&Math.abs(l.box.y-region.y)<region.height+.2&&l.box.x<=region.x+.015&&l.box.x+l.box.width>=region.x+region.width-.015);
+      if(context.length){const left=Math.max(columnLeft,Math.min(bounds.x,...context.map(l=>l.box.x-.008))),right=Math.min(columnRight,Math.max(bounds.x+bounds.width,...context.map(l=>l.box.x+l.box.width+.008)));bounds.x=clamp(left);bounds.width=clamp(right)-bounds.x;}
+    }
+    bounds.height=Math.min(bounds.height,1-bounds.y);
+    const next=layout.lines.find(l=>l.box.y>=region.y+region.height-.001&&prose(l)&&!selected.includes(l));
+    if(next)bounds.height=Math.min(bounds.height,Math.max(region.height,next.box.y-.001-bounds.y));
+    return bounds;
+  }
   // Image-only tables have no cells to measure. Offer a conservative below-caption
   // region for manual review, stopping before the next paragraph or caption.
   const next=layout.lines.slice(index+1).find(l=>isCaption(l)||prose(l));
@@ -141,8 +164,10 @@ function figureBounds(layout,caption){
   const preceding=layout.fragments.filter(l=>l.box.y+l.box.height<=box.y+.001);
   const nearbyBody=preceding.filter(l=>prose(l)&&l.box.y>=box.y-.5);
   let left=.06,right=.94;
-  if(box.x>=.45&&nearbyBody.filter(l=>l.box.x+l.box.width<.46).length>=3)left=Math.max(.42,box.x-.055);
-  if(box.x+box.width<=.55&&nearbyBody.filter(l=>l.box.x>.46).length>=3)right=Math.min(.59,box.x+box.width+.06);
+  const leftColumn=nearbyBody.filter(l=>l.box.x+l.box.width<=box.x-.025&&l.box.width<.5);
+  const rightColumn=nearbyBody.filter(l=>l.box.x>=box.x+box.width+.025&&l.box.width<.5);
+  if(box.x>=.45&&leftColumn.length>=3)left=Math.max(.06,Math.min(box.x-.025,Math.max(...leftColumn.map(l=>l.box.x+l.box.width))+.015));
+  if(box.x+box.width<=.55&&rightColumn.length>=3)right=Math.min(.94,Math.max(box.x+box.width+.025,Math.min(...rightColumn.map(l=>l.box.x))-.015));
   const overlaps=line=>Math.min(right,line.box.x+line.box.width)-Math.max(left,line.box.x)>.04;
   const boundary=preceding.filter(l=>overlaps(l)&&(prose(l)||captionOf(l))).at(-1);
   const top=Math.max(.035,layout.headerBottom,boundary?boundary.box.y+boundary.box.height+.008:box.y-.5);

@@ -4,6 +4,25 @@ const forms={measured:'measure',measures:'measure',measuring:'measure',measureme
 for(const term of 'book textbook this that it they them we you he she do does did has have had can could should would will shall must into about such also some any other all its their these those two three each both needed relevant explanation described including include report reports reports determining determine laboratory chapter edition distinguish definition define identify introduced changes change approved procedure only same amount achieved obtain records recorded compares compare advantages limitations forms form give shown difference differences differ relating relation degree suitable'.split(' '))stop.add(term);
 export function tokens(text){return (text.toLowerCase().match(/[a-z][a-z0-9]+|\d{3,4}/g)||[]).map(t=>forms[t]|| (t.length>4&&t.endsWith('s')&&!t.endsWith('ss')?t.slice(0,-1):t));}
 const meaningful=text=>tokens(text).filter(t=>!stop.has(t));
+function sourceReferences(text){
+  const found=[];
+  for(const match of text.matchAll(/\b(fig(?:ure)?s?\.?|tables?)\s*(\d+(?:\.\d+)*(?:\s*(?:,\s*(?:and\s+)?|and\s+|&\s*)\d+(?:\.\d+)*)*)/gi)){
+    const kind=/^table/i.test(match[1])?'table':'figure';
+    for(const number of match[2].match(/\d+(?:\.\d+)*/g))found.push({key:`${kind}:${number}`,kind,number,start:match.index,end:match.index+match[0].length});
+  }
+  return found;
+}
+function captionReference(span){
+  const match=span.text.match(/^\s*(Fig(?:ure)?\.?|Table)\s*(\d+(?:\.\d+)*)\b[.:]?\s*(.*)$/i);
+  if(!match)return null;
+  const title=match[3].replace(/^[,;)\]]+\s*/,'');
+  if(/\b(?:is|are|was|were)\s+(?:used|shown|given|described|discussed|presented|illustrated|referred)\b/i.test(title)
+    ||/^(?:\([^)]*\)\s*[,;:]?\s*)?(?:also\s+|clearly\s+|further\s+)?(?:shows?|represents?|illustrates?|indicates?|gives?|depicts?|compares?)\b/i.test(title)
+    ||/^(?:\([^)]*\)\s*[,;:]?\s*)?(?:the|this|it)\b.{0,85}\b(?:shows?|shall|cannot|can|is|are)\b/i.test(title)
+    ||/^(?:shows?|gives?|lists?|contains?|presents?|summari[sz]es?|illustrates?|provides?|is|are|was|were|can|will|has|have|indicates?|depicts?|compares?|of|in|on|as|and|from|to|with|at|for|below|above|respectively|adopt|take|use|refer|see)\b/i.test(title)
+    ||/^(?:Fig(?:ure)?\.?|Tables?)\s*\d/i.test(title)||/\.{3,}\s*\d+\s*$/.test(span.text))return null;
+  return `${/^table/i.test(match[1])?'table':'figure'}:${match[2]}`;
+}
 function isSourceListing(span){
   const listingLabel=value=>/^(?:references?|generalreferencebooks?|bibliograph(?:y|ies)|furtherreading|recommendedreading|workscited|(?:tableof)?contents)$/.test((value||'').toLowerCase().replace(/[^a-z]/g,''));
   if(listingLabel(span.section)||listingLabel(span.heading))return true;
@@ -32,7 +51,13 @@ export function buildIndex(spans){
     for(const t of new Set([...terms,...heading]))df.set(t,(df.get(t)||0)+1);
     return {span,order,tf,heading:new Set(heading),headingPhrase:` ${heading.join(' ')} `,phraseText:` ${meaningful(span.text).join(' ')} `,length:Math.max(terms.length,1)};
   });
-  return {docs,df,headingTerms,average:docs.reduce((s,d)=>s+d.length,0)/Math.max(docs.length,1)};
+  const references=new Map();
+  for(const doc of docs)for(const reference of sourceReferences(doc.span.text)){
+    if(!references.has(reference.key))references.set(reference.key,{captions:[],mentions:[]});
+    const entry=references.get(reference.key);if(!entry.mentions.includes(doc))entry.mentions.push(doc);
+    if(captionReference(doc.span)===reference.key&&!entry.captions.includes(doc))entry.captions.push(doc);
+  }
+  return {docs,df,headingTerms,references,average:docs.reduce((s,d)=>s+d.length,0)/Math.max(docs.length,1)};
 }
 function sentenceWindows(text){
   const parts=[];let start=0;
@@ -60,7 +85,71 @@ function chooseWindow(span,budget,query,preferLead=false){
   // stays broad enough to retain all supporting pixels and nearby context.
   return selected;
 }
+const completeSentence=window=>wordCount(window.text)>=5&&/[.!?]$/.test(window.text)&&/^[A-Z“"(]/.test(window.text);
+const hasProse=doc=>!doc.span.isHeading&&wordCount(doc.span.text)>=8&&sentenceWindows(doc.span.text).some(completeSentence);
+function referenceContext(index,question,references,wordBudget){
+  const result={question,passages:[],figures:[],status:'no-match',coverageNotes:[]};
+  let topicText=question.text;
+  const ranges=[...new Map(references.map(reference=>[`${reference.start}:${reference.end}`,reference])).values()];
+  for(const reference of ranges.sort((a,b)=>b.start-a.start))topicText=topicText.slice(0,reference.start)+' '+topicText.slice(reference.end);
+  const topic=new Set(meaningful(topicText).filter(t=>t!=='table'));
+  const unique=[...new Map(references.map(reference=>[reference.key,reference])).values()];
+  const groups=unique.map(reference=>{
+    const entry=index.references.get(reference.key);if(!entry)return [];
+    const seeds=entry.captions.length?entry.captions:entry.mentions;
+    const pageOf=doc=>doc.span.segments[0].page.pdfPage;
+    const direct=entry.mentions.filter(doc=>seeds.some(seed=>Math.abs(pageOf(doc)-pageOf(seed))<=1));
+    const nearby=index.docs.filter(doc=>seeds.some(seed=>Math.abs(pageOf(doc)-pageOf(seed))<=1&&(doc.span.heading===seed.span.heading||direct.some(mention=>mention.span.heading===doc.span.heading))));
+    const eligible=doc=>hasProse(doc)&&!captionReference(doc.span)&&(!topic.size||[...topic].some(term=>doc.tf.has(term)||doc.heading.has(term)));
+    const directProse=direct.filter(eligible);
+    const captionTopics=new Set(entry.captions.flatMap(seed=>meaningful(seed.span.text).filter(term=>!['table','figure','fig'].includes(term))));
+    const supportsCaption=doc=>captionTopics.size&&[...captionTopics].filter(term=>doc.tf.has(term)).length>=Math.min(2,captionTopics.size);
+    return directProse.length?directProse:nearby.filter(doc=>eligible(doc)&&supportsCaption(doc)).sort((a,b)=>Math.min(...seeds.map(seed=>Math.abs(a.order-seed.order)))-Math.min(...seeds.map(seed=>Math.abs(b.order-seed.order)))).slice(0,2);
+  });
+  const selected=new Set();let used=0;
+  for(let round=0;round<7&&used<wordBudget&&result.passages.length<7;round++)for(const group of groups){
+    const doc=group.find(candidate=>!selected.has(candidate.span.id));if(!doc)continue;selected.add(doc.span.id);
+    const remaining=wordBudget-used,allowance=Math.min(remaining,unique.length>1?Math.ceil(wordBudget/unique.length):120);
+    const passage=chooseWindow(doc.span,allowance,topic,!topic.size);if(!passage)continue;
+    result.passages.push(passage);used+=wordCount(passage.text);
+    if(result.passages.length>=7||used>=wordBudget)break;
+  }
+  if(result.passages.length){result.status='partial';result.coverageNotes.push('These passages provide source context for the requested figure or table. Check the original selection; full coverage is unverified.');}
+  else result.coverageNotes.push('No complete source explanation was found for the requested figure or table. Review the original selection.');
+  if(groups.some(group=>!group.length))result.coverageNotes.push('Some requested references have no matching explanatory passage.');
+  return result;
+}
+function compositionContext(index,question,wordBudget){
+  const intent=question.text.match(/\b(?:components?|constituents?|ingredients?)\s+(?:of|in)\s+(.+?)(?:[?!.]|$)/i);
+  if(!intent)return null;
+  const subjectText=intent[1].split(/\b(?:and|then|also)\s+(?:explain|describe|discuss|give|state|identify|compare|list)\b/i)[0];
+  const subject=meaningful(subjectText).filter(term=>!['basic','main','fundamental','major','essential'].includes(term));
+  if(!subject.length)return null;
+  const label=subject.join(' '),parts='(?:component|ingredient|constituent)',determiner='(?:(?:a|an|the) )?';
+  const subjectEnd='(?=$| (?:which|that|while|and|but|because|when|where)\\b)';
+  const identity=new RegExp(`(?:\\b${parts} (?:of|in) ${determiner}${label} (?:is|are|include|comprise|consist)\\b|\\b(?:is|are) (?:[a-z0-9]+ ){0,5}${parts} (?:of|in) ${determiner}${label}${subjectEnd})`);
+  const candidates=index.docs.flatMap(doc=>hasProse(doc)?sentenceWindows(doc.span.text).filter(window=>completeSentence(window)&&identity.test(tokens(window.text).join(' '))).map(window=>({doc,window})):[]);
+  const result={question,passages:[],figures:[],status:'no-match',coverageNotes:[]};
+  let used=0;
+  for(const {doc,window} of candidates){
+    if(result.passages.some(p=>p.originId===doc.span.id))continue;
+    const allowance=Math.min(80,wordBudget-used);if(wordCount(window.text)>allowance)continue;
+    let end=window.end;
+    for(const next of sentenceWindows(doc.span.text).filter(part=>part.start>=end)){
+      if(!completeSentence(next)||wordCount(doc.span.text.slice(window.start,next.end))>allowance)break;end=next.end;
+    }
+    const text=doc.span.text.slice(window.start,end);
+    result.passages.push({...doc.span,id:`${doc.span.id}:${window.start}:${end}`,originId:doc.span.id,text,selectedOffsets:{start:window.start,end}});used+=wordCount(text);
+    if(used>=wordBudget||result.passages.length>=3)break;
+  }
+  if(result.passages.length){result.status='partial';result.coverageNotes.push('These source passages identify constituents of the requested subject. Coverage of every component and requested detail is unverified.');}
+  else result.coverageNotes.push('No clear source passage identifying the constituents of this subject was found. Try the book’s terminology or a more specific topic.');
+  return result;
+}
 export function searchQuestion(index,question,{wordBudget=200}={}){
+  const references=sourceReferences(question.text);
+  if(references.length)return referenceContext(index,question,references,wordBudget);
+  const composition=compositionContext(index,question,wordBudget);if(composition)return composition;
   const core=[...new Set(meaningful(question.text))];const all=[...new Set(tokens(question.text))];
   const result={question,passages:[],figures:[],status:'no-match',coverageNotes:[]};
   if(!core.length){result.coverageNotes.push('Add the textbook topic to this question.');return result;}
@@ -73,7 +162,6 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
   const ranked=index.docs.map(d=>({...d,score:score(d)})).filter(d=>d.score>0).sort((a,b)=>b.score-a.score);
   if(!ranked.length)return result;
   let broad=/\b(methods|tests|ways|types|discuss)\b/i.test(question.text);
-  const hasProse=d=>!d.span.isHeading&&wordCount(d.span.text)>=8&&/[.!?]/.test(d.span.text);
   const narrativeNear=d=>index.docs.some(n=>hasProse(n)&&n.span.heading===d.span.heading&&Math.abs(n.span.segments[0].page.pdfPage-d.span.segments[0].page.pdfPage)<=1);
   const strongest=ranked.find(d=>hasProse(d)||narrativeNear(d));
   const primary=known.find(t=>index.headingTerms.has(t)&&(index.df.get(t)||0)<N*.07)||known[0],firstPair=` ${core.slice(0,2).join(' ')} `;

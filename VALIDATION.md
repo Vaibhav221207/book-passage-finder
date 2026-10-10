@@ -67,3 +67,16 @@ The reported Table 12.27 crop selected the paragraph above its caption because e
 - An independent focused review found two UI problems (touch scrolling and hiding included figures after passage removal); both were corrected. No further serious issue was found in the focused review of these repairs.
 
 No supplied book pages, assignment data, browser downloads or private verification fixtures are included in the source or deployment.
+
+## Remaining relevance and crop repair
+
+Verified on 10 October 2026. The final suite passes 109/109 (25 additional regressions); build and distribution verification pass with 250 assets / 51.5 MB. An independent review reproduced and verified the repaired edge cases and found no remaining substantive issue within this repair scope.
+
+- Passage search retains the complete type and number of explicit figure/table references. Reference context requires an exact mention or caption/topic evidence; absent references and unrelated nearby prose do not become answers. Multiple references retain independent context within the quotation limit.
+- Decimal table fragments cannot anchor prose retrieval. Constituent questions recognize ingredient/constituent wording only when a complete sentence explicitly connects it to the requested subject. Trailing instructions remain supported; components of a subject's costs cannot substitute for its physical constituents.
+- Inline references, including punctuation, qualifiers and connected split-run reference lists, do not become caption suggestions. Table headers no longer truncate the rows; crop padding uses reading-column geometry to retain table borders while respecting neighboring text. Figure crops distinguish wider neighboring prose columns.
+- The supplied textbook's concrete-components question now selects 70 words on PDF 482 identifying aggregate and paste. This is phase-level source evidence and remains partial. Table 12.27 selects 101 words on PDF 618 instead of flow-table text. Table 99.99 returns no passage or figure.
+- Actual Tables 1.7, 12.22 and 12.27 and Fig. 12.25 were rendered and visually checked. Table 1.7 includes its entire grid; Table 12.27 includes rows and notes; the J-ring figure excludes adjacent prose. Real browser checks verified selection/confirmation and retained confirmed images after question switching, including a figure-only result.
+- A repeated private 20-question evaluation retains exact source offsets, valid page/run/rectangle provenance and the 200-word limit, with no provenance failures. This does not measure general answer accuracy; existing unrelated-prose limits in other questions remain documented above.
+
+Raster-only captions still require selected-page OCR or manual selection, and unusual/multiple-page layouts still require review. No book pages, assignment data or private verification fixtures were added to source or distribution.

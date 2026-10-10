@@ -121,3 +121,56 @@ test('explicit question references take priority over other passage references a
   assert.equal(candidates[0].caption,'Table 12.27. Trial mix proportions');
   assert.equal(candidates[0].page.pdfPage,8);
 });
+
+test('descriptive two-column table headers do not truncate the rows underneath',()=>{
+  const session={pages:[page(1,[run('Table 1.7. Heat of hydration',.36,.15,.28),run('Compound',.25,.18,.09),run('Heat of hydration at the given age (cal/g)',.5,.18,.31),run('3 days',.5,.2,.05),run('90 days',.62,.2,.06),run('13 years',.74,.2,.07),run('C3S',.26,.22,.035),run('58',.51,.22,.03),run('104',.63,.22,.03),run('122',.75,.22,.03),run('C2S',.26,.24,.035),run('12',.51,.24,.03),run('42',.63,.24,.03),run('59',.75,.24,.03),run('C4AF',.26,.28,.04),run('69',.51,.28,.03),run('98',.63,.28,.03),run('102',.75,.28,.03),run('Since hydration is additive, it can be predicted from an expression.',.2,.31,.63)])]};
+  const [table]=suggestFigures(session,{question:{text:'Discuss Table 1.7.'},passages:[]});
+  assert.ok(table.bounds.y+table.bounds.height>=.294,'Every data row must be included despite a sentence-like grouped header');
+  assert.ok(table.bounds.y+table.bounds.height<.31,'Following prose must remain outside the table');
+});
+
+test('punctuation and sentence qualifiers cannot turn prose references into diagram captions',()=>{
+  const session={pages:[page(1,[run('Fig. 1.7 represents the microscopic schematic model of the structure.',.14,.2,.7),run('Fig. 6.24, shows plastic shrinkage cracks due to quick drying.',.14,.25,.7),run('Figure 8.5 also shows the relationship between the measured values.',.14,.3,.7),run('Figure 8.19. The graph shows that shrinkage increases with time.',.14,.35,.7),run('Fig 2.8. The cement shall be considered as finally set when lowered.',.14,.4,.7),run('Fig. 11.13 (curve B), the required water-cement ratio is 0.423.',.14,.45,.7),run('Table 9.18) adopt the prescribed water to cement ratio.',.14,.5,.7),run('Table 5.5, Table 5.6 and 5.7 shows the specification limits.',.14,.55,.7)])]};
+  const candidates=suggestFigures(session,{question:{text:'Discuss Figs. 1.7, 6.24, 8.5, 8.19, 2.8, 11.13 and Tables 9.18, 5.5.'},passages:[]});
+  assert.deepEqual(candidates,[]);
+});
+
+test('adjacent prose ending near the middle of the page cannot truncate a right-hand figure',()=>{
+  const session={pages:[page(1,[run('The preceding sentence describes the ring dimensions and sizes.',.16,.15,.32),run('Another equipment sentence remains beside the image in its column.',.16,.24,.32),run('The ring is formed by vertical bars fixed at equal spacing.',.16,.3,.32),run('Fig. 12.25.',.59,.33,.07),run('J-ring apparatus',.66,.33,.11)])]};
+  const [figure]=suggestFigures(session,{question:{text:'Describe Fig. 12.25.'},passages:[]});
+  assert.ok(figure.bounds.y<=.16,'The picture above the caption must not be reduced to a caption-height crop');
+  assert.ok(figure.bounds.x>.48&&figure.bounds.x<=.5,'Crop must separate the real column boundary without cutting off the picture');
+  assert.ok(figure.bounds.x+figure.bounds.width>=.84);
+});
+
+test('a full-width descriptive table header referencing that same table remains inside its crop',()=>{
+  const session={pages:[page(1,[run('Table 12.22. Trial result',.3,.4,.44),run('Table 12.22 Shows the Trial Result against the reference values',.18,.425,.65),run('Method',.2,.45,.06),run('Property',.4,.45,.06),run('Trial result',.72,.45,.09),...cells(.48),...cells(.52),...cells(.56),run('The following paragraph explains the measured results at the site.',.16,.578,.68)])]};
+  const [table]=suggestFigures(session,{question:{text:'Discuss Table 12.22.'},passages:[]});
+  assert.ok(table.bounds.y+table.bounds.height>=.574,'Reference wording in a table header must not cut off its rows');
+  assert.ok(table.bounds.y+table.bounds.height<.578,'Crop padding must not reach the adjacent paragraph');
+});
+
+test('centered table cells retain the surrounding reading-column width for its outer grid borders',()=>{
+  const session={pages:[page(1,[run('Table 1.7. Hydration values',.36,.15,.28),run('Compound',.26,.18,.08),run('Heat at the given age (cal/g)',.5,.18,.31),run('C3S',.26,.22,.035),run('58',.51,.22,.03),run('104',.63,.22,.03),run('122',.75,.22,.03),run('C4AF',.26,.28,.04),run('69',.51,.28,.03),run('98',.63,.28,.03),run('102',.75,.28,.03),run('The following paragraph explains hydration at each measured age.',.16,.32,.68)])]};
+  const [table]=suggestFigures(session,{question:{text:'Discuss Table 1.7.'},passages:[]});
+  assert.ok(table.bounds.x<=.16,'Centered first-column cells must not determine the table edge');
+  assert.ok(table.bounds.x+table.bounds.width>=.84,'Crop must cover the neighboring column extent');
+  assert.ok(table.bounds.y+table.bounds.height<.32,'Extra border context must still stop before following prose');
+});
+
+test('surrounding context cannot widen a table crop into prose running beside it',()=>{
+  const session={pages:[page(1,[run('The paragraph above both columns spans this complete width.',.16,.15,.68),run('Table 2.3. Values',.62,.3,.2),run('Mix',.55,.34,.04),run('Value',.75,.34,.05),run('1',.55,.38,.02),run('435',.75,.38,.04),run('2',.55,.42,.02),run('421',.75,.42,.04),run('The independent left column explains another laboratory experiment.',.16,.36,.3),run('The next left column sentence contains its own explanation.',.16,.4,.3)])]};
+  const [table]=suggestFigures(session,{question:{text:'Discuss Table 2.3.'},passages:[]});
+  assert.ok(table.bounds.x>.46,'Table context must stay outside the neighboring prose column');
+  assert.ok(table.bounds.y+table.bounds.height>=.434);
+});
+
+test('a connected inline reference list split into PDF runs is not offered as a number-only table',()=>{
+  const session={pages:[page(1,[run('Table 5.5,',.14,.3,.12),run('Table 5.6 and 5.7 shows the specification limits.',.27,.3,.56)])]};
+  assert.deepEqual(suggestFigures(session,{question:{text:'Discuss Tables 5.5 and 5.6.'},passages:[]}),[]);
+});
+
+test('independent captions in separate columns sharing a baseline remain available',()=>{
+  const session={pages:[page(1,[run('Table 5.5. First trial values',.14,.3,.24),run('Table 5.6. Second trial values',.55,.3,.26)])]};
+  assert.deepEqual(suggestFigures(session,{question:{text:'Discuss Tables 5.5 and 5.6.'},passages:[]}).map(f=>f.caption),['Table 5.5. First trial values','Table 5.6. Second trial values']);
+});
