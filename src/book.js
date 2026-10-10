@@ -30,7 +30,8 @@ export async function openBook(file,{signal,onProgress=()=>{},onPassword}={}) {
     for(let n=1;n<=pdf.numPages;n++){
       abortIfNeeded(signal);const page=await pdf.getPage(n);const viewport=page.getViewport({scale:1});
       const text=await page.getTextContent();abortIfNeeded(signal);
-      const runs=text.items.filter(item=>'str'in item).map((item,i)=>itemToRun(item,`${n}-${i}`,viewport));
+      const readingViewport=page.getViewport({scale:1,rotation:0});
+      const runs=text.items.filter(item=>'str'in item).map((item,i)=>itemToRun(item,`${n}-${i}`,viewport,readingViewport));
       if(runs.map(r=>r.text).join('').trim().length<20)missingTextPages.push(n);
       pages.push({ref:{pdfPage:n,printedLabel:labels?.[n-1]??null},runs,width:viewport.width,height:viewport.height,method:'pdf-text'});
       onProgress({completed:n,total:pdf.numPages,phase:'Reading book'});page.cleanup();await tick();

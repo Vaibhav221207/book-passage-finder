@@ -1,4 +1,6 @@
 import {abortIfNeeded,tick} from './model.js';
+import {makeSourceSpans} from './layout.js';
+export function prepareOcrUpdate(session,recognized,{signal}={}){abortIfNeeded(signal);const successful=new Map(recognized.filter(p=>p.runs.some(r=>r.text.trim())).map(p=>[p.ref.pdfPage,p]));if(!successful.size)throw new Error('No readable text found. The existing book text was kept.');const pages=session.pages.map(p=>successful.get(p.ref.pdfPage)||p),skipped=recognized.filter(p=>!successful.has(p.ref.pdfPage)).map(p=>p.ref.pdfPage);return {pages,spans:makeSourceSpans(pages),skipped};}
 let loader;
 export async function loadOcr(){
   if(typeof document==='undefined')throw new Error('OCR requires a browser.');

@@ -1,4 +1,4 @@
-import {openBook} from './book.js';import {parseQuestions,readAssignment} from './questions.js';import {ocrPages} from './ocr.js';import {makeSourceSpans} from './layout.js';import {createController} from './session.js';import {pageName,wordCount} from './model.js';
+import {openBook} from './book.js';import {parseQuestions,readAssignment} from './questions.js';import {ocrPages,prepareOcrUpdate} from './ocr.js';import {createController} from './session.js';import {pageName,wordCount,abortIfNeeded,resolveResultReferences} from './model.js';
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 let worker,abortController,currentFile,resultRevision=0;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
@@ -11,15 +11,15 @@ async function operate(task){
   try{const patch=await task(localAbort.signal,job);if(controller.finish(job,patch||{}))updateControls();else if(patch?.session&&patch.session!==state.session)await patch.session.dispose();}
   catch(e){if(state.activeJob===job){controller.finish(job);message(e.name==='AbortError'?'Cancelled. You can try again.':e.message,e.name!=='AbortError');updateControls();}}
 }
-function workerCall(type,payload,signal,jobId=crypto.randomUUID()){
-  const activeWorker=worker;return new Promise((resolve,reject)=>{
+function workerCall(type,payload,signal,jobId=crypto.randomUUID(),activeWorker=worker){
+  return new Promise((resolve,reject)=>{
     const cleanup=()=>{activeWorker.removeEventListener('message',receive);activeWorker.removeEventListener('error',fail);signal?.removeEventListener('abort',cancel);};
     const receive=e=>{if(e.data.jobId!==jobId)return;cleanup();if(e.data.type==='error')reject(new Error(e.data.message));else resolve(e.data);};
     const fail=e=>{cleanup();reject(new Error(e.message||'Search worker failed.'));};const cancel=()=>{cleanup();reject(new DOMException('Cancelled','AbortError'));};
     activeWorker.addEventListener('message',receive);activeWorker.addEventListener('error',fail);signal?.addEventListener('abort',cancel,{once:true});if(signal?.aborted){cancel();return;}activeWorker.postMessage({jobId,type,payload});
   });
 }
-async function indexSession(session,signal){worker?.terminate();worker=new Worker(new URL('./search-worker.js',import.meta.url),{type:'module'});progress({completed:0,total:1,phase:'Preparing search'});await workerCall('index',{spans:session.spans,sessionId:session.id},signal);}
+async function indexSession(session,signal){const candidate=new Worker(new URL('./search-worker.js',import.meta.url),{type:'module'});try{progress({completed:0,total:1,phase:'Preparing search'});await workerCall('index',{spans:session.spans,sessionId:session.id},signal,crypto.randomUUID(),candidate);abortIfNeeded(signal);worker?.terminate();worker=candidate;}catch(e){candidate.terminate();throw e;}}
 async function chooseBook(file){
   if(!file)return;currentFile=file;const old=state.session;state.session=null;state.results=[];resultRevision++;renderResults();old?.dispose();
   $('book-title').textContent=file.name;$('book-detail').textContent='Opening textbook…';
@@ -38,7 +38,7 @@ $('cancel').addEventListener('click',()=>{abortController?.abort();controller.ca
 $('assignment-file').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;await operate(async signal=>{const qs=await readAssignment(file,{signal,onProgress:progress});$('questions').value=qs.map((q,i)=>`${i+1}. ${q.text}`).join('\n\n');message('Questions imported. Check and edit the text before searching.');return {questions:qs};});});
 $('find').addEventListener('click',async()=>{
   const questions=parseQuestions($('questions').value),session=state.session;
-  await operate(async(signal,job)=>{progress({completed:0,total:questions.length,phase:'Finding passages'});const response=await workerCall('search',{sessionId:session.id,questions,options:{wordBudget:200}},signal,job);return {results:response.payload,questions};});
+  await operate(async(signal,job)=>{progress({completed:0,total:questions.length,phase:'Finding passages'});const response=await workerCall('search',{sessionId:session.id,questions,options:{wordBudget:200}},signal,job);return {results:resolveResultReferences(session,response.payload),questions};});
   renderResults();if(state.results.length)$('results-heading').scrollIntoView({behavior:'instant',block:'start'});
 });
 async function viewSource(passage,figure,result){const {openSourceDialog}=await import('./source-view.js');await openSourceDialog(state.session,{passage,figure,onConfirm:selection=>{if(figure)Object.assign(figure,selection,{confirmed:true});else result.figures.push({...selection,id:crypto.randomUUID(),confirmed:true});renderResults();}});}
@@ -57,13 +57,13 @@ async function renderResults(){
     }host.append(card);
   }
 }
-$('run-ocr').addEventListener('click',async()=>{const raw=$('ocr-range').value.trim(),match=raw.match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!match){message('Enter a PDF page or range, such as 20-25.',true);return;}const start=+match[1],end=+(match[2]||match[1]);if(start<1||end<start||end>state.session.pageCount||end-start>29){message('Choose a valid range of up to 30 PDF pages. You can recognize more in another batch.',true);return;}const session=state.session;await operate(async signal=>{const pages=await ocrPages(session,Array.from({length:end-start+1},(_,i)=>start+i),{signal,onProgress:progress});if(!pages.some(p=>p.runs.length))throw new Error('No readable text found in the selected pages.');for(const p of pages)session.pages[p.ref.pdfPage-1]=p;session.spans=makeSourceSpans(session.pages);await indexSession(session,signal);message(`${pages.length} pages recognized. Check OCR passages against the originals.`);});});
+$('run-ocr').addEventListener('click',async()=>{const raw=$('ocr-range').value.trim(),match=raw.match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!match){message('Enter a PDF page or range, such as 20-25.',true);return;}const start=+match[1],end=+(match[2]||match[1]);if(start<1||end<start||end>state.session.pageCount||end-start>29){message('Choose a valid range of up to 30 PDF pages. You can recognize more in another batch.',true);return;}const session=state.session;await operate(async(signal,job)=>{const pages=await ocrPages(session,Array.from({length:end-start+1},(_,i)=>start+i),{signal,onProgress:progress}),update=prepareOcrUpdate(session,pages,{signal});await indexSession({...session,...update},signal);abortIfNeeded(signal);if(state.activeJob!==job)throw new DOMException('Cancelled','AbortError');session.pages=update.pages;session.spans=update.spans;message(`${pages.length-update.skipped.length} pages recognized.${update.skipped.length?' Existing text kept on empty OCR pages: '+update.skipped.join(',')+'.':''} Check OCR passages against the originals.`);return {session};});});
 $('export').addEventListener('click',()=>operate(async signal=>{const {exportPacket,downloadBlob}=await import('./export.js');const blob=await exportPacket(state.session,state.results,{signal,onProgress:progress});downloadBlob(blob,'book-passages.pdf');message(`Downloaded ${blob.pageCount} PDF pages with your selected passages and figures.`);}));
 $('save-book').addEventListener('click',async()=>{try{const {saveBook}=await import('./storage.js');await saveBook(currentFile);await refreshSaved();message('Book saved on this device. You can delete it below.');}catch(e){message(`Unable to save here. ${e.message}`,true);}});
 $('saved-books').addEventListener('change',async e=>{if(!e.target.value)return;try{const {loadSavedBook}=await import('./storage.js');await chooseBook(await loadSavedBook(e.target.value));}catch(e){message(e.message,true);}});
 $('delete-saved').addEventListener('click',async()=>{const id=$('saved-books').value;if(!id)return;const {deleteSavedBook}=await import('./storage.js');await deleteSavedBook(id);await refreshSaved();message('Saved copy deleted.');});
 async function refreshSaved(){try{const {listSavedBooks}=await import('./storage.js'),books=await listSavedBooks();$('saved-row').hidden=!books.length;$('saved-books').replaceChildren(new Option('Choose a saved book',''),...books.map(b=>new Option(b.name,b.id)));}catch{}}
-$('page-label').addEventListener('click',()=>{const n=Number(window.prompt('Which physical PDF page do you want to label?'));if(!Number.isInteger(n)||n<1||n>state.session.pageCount)return;const label=window.prompt(`Printed label on PDF page ${n} (blank removes it):`,state.session.pages[n-1].ref.printedLabel||'');if(label===null)return;state.session.pages[n-1].ref.printedLabel=label.trim()||null;for(const result of state.results)for(const p of result.passages)for(const s of p.segments)if(s.page.pdfPage===n)s.page.printedLabel=label.trim()||null;renderResults();});
+$('page-label').addEventListener('click',()=>{const n=Number(window.prompt('Which physical PDF page do you want to label?'));if(!Number.isInteger(n)||n<1||n>state.session.pageCount)return;const label=window.prompt(`Printed label on PDF page ${n} (blank removes it):`,state.session.pages[n-1].ref.printedLabel||'');if(label===null)return;state.session.pages[n-1].ref.printedLabel=label.trim()||null;resolveResultReferences(state.session,state.results);renderResults();});
 $('close-source').addEventListener('click',()=>$('source-dialog').close());
 window.addEventListener('beforeunload',()=>{worker?.terminate();state.session?.dispose();});
 updateControls();refreshSaved();

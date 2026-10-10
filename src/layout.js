@@ -1,5 +1,5 @@
 const clamp = (n,lo=0,hi=1)=>Math.max(lo,Math.min(hi,n));
-export function itemToRun(item,id,viewport) {
+export function itemToRun(item,id,viewport,readingViewport) {
   const [a,b,c,d,e,f]=item.transform;
   const height=Math.hypot(c,d)||item.height||10;
   const width=item.width||0;
@@ -11,7 +11,8 @@ export function itemToRun(item,id,viewport) {
   const points=corners.map(([x,y])=>[(va*x+vc*y+ve)/viewport.width,(vb*x+vd*y+vf)/viewport.height]);
   const x=clamp(Math.min(...points.map(p=>p[0]))),y=clamp(Math.min(...points.map(p=>p[1])));
   const right=clamp(Math.max(...points.map(p=>p[0]))),bottom=clamp(Math.max(...points.map(p=>p[1])));
-  return {id:String(id),text:item.str,bounds:{x,y,width:right-x,height:bottom-y},fontSize:height};
+  const run={id:String(id),text:item.str,bounds:{x,y,width:right-x,height:bottom-y},fontSize:height};
+  if(readingViewport)run.readingBounds=itemToRun(item,id,readingViewport).bounds;return run;
 }
 function romanValue(text) {
   if(!/^[ivxlcdm]+$/i.test(text)) return null;
@@ -36,9 +37,10 @@ export function unionRects(rects) {
 }
 export function makeSourceSpans(pages,outline=[]) {
   const spans=[];let heading='',section='';
+  const readingPages=pages.map(p=>({...p,runs:p.runs.map(r=>({...r,sourceBounds:r.bounds,bounds:r.readingBounds||r.bounds}))}));
   const repeated=new Map();
-  for(const p of pages)for(const r of p.runs)if(r.bounds.y<.20||r.bounds.y>.90){const t=r.text.trim().toLowerCase();repeated.set(t,(repeated.get(t)||0)+1);}
-  for(const page of pages){
+  for(const p of readingPages)for(const r of p.runs)if(r.bounds.y<.20||r.bounds.y>.90){const t=r.text.trim().toLowerCase();repeated.set(t,(repeated.get(t)||0)+1);}
+  for(const page of readingPages){
     const firstY=Math.min(...page.runs.filter(r=>r.text.trim()).map(r=>r.bounds.y));
     const seen=new Set();const usable=page.runs.filter(r=>{
       const t=r.text.trim();if(!t)return false;
@@ -69,7 +71,7 @@ export function makeSourceSpans(pages,outline=[]) {
       if(!paragraph.length)return;
       const runs=paragraph.flatMap(l=>l.runs.toSorted((a,b)=>a.bounds.x-b.bounds.x));
       const text=runs.map(r=>r.text.trim()).join(' ').replace(/\s+/g,' ').trim();
-      const rects=paragraph.map(l=>unionRects(l.runs.map(r=>r.bounds)));
+      const rects=paragraph.map(l=>unionRects(l.runs.map(r=>r.sourceBounds)));
       spans.push({id:`p${page.ref.pdfPage}-${spans.length}`,text,heading,section,
         segments:[{page:page.ref,ranges:runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects,method:page.method}]});paragraph=[];
     };
@@ -79,7 +81,7 @@ export function makeSourceSpans(pages,outline=[]) {
       const titleCase=line.runs.some(r=>r.fontSize>=bodySize*.96)&&text.split(/\s+/).length<=10&&text.split(/\s+/).every(w=>/^(?:[A-Z][A-Za-z-]*|of|and|for|in|the|to|&)$/.test(w));
       const isHeading=text.length>=3&&text.length<110&&text.split(/\s+/).length<15&&(large||titleCase||(/^[A-Z][A-Z\s()–—:-]{4,}$/.test(text)));
       if(isHeading){emit();heading=text; if(large&&line.runs.some(r=>(r.fontSize||12)>bodySize*1.35))section=text;
-        spans.push({id:`p${page.ref.pdfPage}-h${spans.length}`,text,heading,section,isHeading:true,segments:[{page:page.ref,ranges:line.runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects:[unionRects(line.runs.map(r=>r.bounds))],method:page.method}]});continue;}
+        spans.push({id:`p${page.ref.pdfPage}-h${spans.length}`,text,heading,section,isHeading:true,segments:[{page:page.ref,ranges:line.runs.map(r=>({runId:r.id,start:0,end:r.text.length})),rects:[unionRects(line.runs.map(r=>r.sourceBounds))],method:page.method}]});continue;}
       const prev=paragraph.at(-1); const gap=prev?line.y-prev.y:0;
       const prevText=prev?.runs.map(r=>r.text).join(' ')||'';
       if(prev&&(gap>.035||line.left-prev.left>.035||Math.abs(line.left-prev.left)>.25||paragraph.length>=12||(gap>.022&&/[.!?]$/.test(prevText))))emit();

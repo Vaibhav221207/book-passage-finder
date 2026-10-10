@@ -15,10 +15,16 @@ export function buildIndex(spans){
   return {docs,df,headingTerms,average:docs.reduce((s,d)=>s+d.length,0)/Math.max(docs.length,1)};
 }
 function sentenceWindows(text){
-  const protectedText=text.replace(/\b(Fig|Figs|No|Dr|Mr|Mrs|e\.g|i\.e|cm|mm)\./gi,m=>m.slice(0,-1)+'\u0001');
-  const parts=[];const re=/[^.!?]+(?:[.!?]+(?=\s|$)|$)/g;let m;
-  while((m=re.exec(protectedText))){const raw=text.slice(m.index,m.index+m[0].length),trim=raw.trim();if(trim)parts.push({text:trim,start:m.index+raw.indexOf(trim),end:m.index+raw.indexOf(trim)+trim.length});}
-  return parts.length?parts:[{text:text.trim(),start:text.indexOf(text.trim()),end:text.trimEnd().length}];
+  const parts=[];let start=0;
+  const add=end=>{const raw=text.slice(start,end),trim=raw.trim();if(trim)parts.push({text:trim,start:start+raw.indexOf(trim),end:start+raw.indexOf(trim)+trim.length});start=end;};
+  for(let i=0;i<text.length;i++){
+    if(!/[.!?]/.test(text[i]))continue;
+    if(text[i]==='.'&&/\d/.test(text[i-1]||'')&&/\d/.test(text[i+1]||''))continue;
+    const prefix=text.slice(Math.max(0,i-12),i+1),suffix=text.slice(i+1);
+    if(text[i]==='.'&&(/(?:^|\s)(?:Fig|Figs|No|Dr|Mr|Mrs|sq|e\.g|i\.e)\.$/i.test(prefix)||(/[A-Z]\.$/.test(prefix)&&/^[A-Z]\./.test(suffix))))continue;
+    let end=i+1;while(/[.!?"”')]/.test(text[end]||' ')&&end<text.length)end++;
+    if(end===text.length||/\s/.test(text[end])){add(end);i=end-1;}
+  }if(start<text.length)add(text.length);return parts;
 }
 function chooseWindow(span,budget,query,preferLead=false){
   if(wordCount(span.text)>=5&&wordCount(span.text)<=budget&&/[.!?]$/.test(span.text)&&/^[A-Z“"(]/.test(span.text))return {...span,originId:span.id,selectedOffsets:{start:0,end:span.text.length}};
@@ -97,9 +103,13 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
     result.passages.push(passage);used+=wordCount(passage.text);headings.add(best.facet||best.span.heading);
   }
   if(!result.passages.length){result.coverageNotes.push('Matches were found, but no complete short passage fits. Try a more specific question or view a source page.');return result;}
-  const found=new Set(result.passages.flatMap(p=>tokens(p.text+' '+p.heading)));
+  const found=new Set(result.passages.flatMap(p=>tokens(p.text)));
   const uncovered=known.filter(t=>!found.has(t));
-  result.status=unknown.length||uncovered.length||qualifiers.some(t=>!found.has(t))?'partial':'matches';
+  const relationship=/\b(same|identical|equivalent|always|never|only|approved|prove|why|cause|without)\b/i.test(question.text);
+  const facets=/\b(and|compare|methods|tests|forms|procedure|formula|recorded|advantages|limitations|two|three|graph|results)\b/i.test(question.text);
+  result.status=unknown.length||uncovered.length||relationship||facets||qualifiers.some(t=>!found.has(t))?'partial':'matches';
+  if(relationship)result.coverageNotes.push('These source suggestions do not verify the requested claim or relationship. Check the original explanation.');
+  if(facets)result.coverageNotes.push('Coverage of every requested part is unverified. View the source or expand a passage for the missing details.');
   if(unknown.length)result.coverageNotes.push(`Not found in this book: ${unknown.slice(0,6).join(', ')}.`);
   if(uncovered.length)result.coverageNotes.push(`Short selections may not cover: ${uncovered.slice(0,6).join(', ')}.`);
   if(qualifiers.some(t=>!found.has(t)))result.coverageNotes.push('The selected passages do not establish every requested standard.');

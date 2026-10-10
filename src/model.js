@@ -8,3 +8,4 @@ export const abortIfNeeded = signal => { if(signal?.aborted) throw new DOMExcept
 export const tick = () => new Promise(resolve=>setTimeout(resolve,0));
 export function pageName(ref) {return ref.printedLabel ? `Book ${ref.printedLabel} · PDF ${ref.pdfPage}` : `PDF ${ref.pdfPage}`;}
 export const wordCount = text => text.trim() ? text.trim().split(/\s+/).length : 0;
+export function resolveResultReferences(session,results){if(!session.pages)return results;const refs=new Map(session.pages.map(p=>[p.ref.pdfPage,p.ref]));for(const result of results){for(const passage of result.passages)for(const segment of passage.segments)segment.page=refs.get(segment.page.pdfPage)||segment.page;for(const figure of result.figures||[])figure.page=refs.get(figure.page.pdfPage)||figure.page;}return results;}

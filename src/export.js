@@ -1,4 +1,4 @@
-import {abortIfNeeded,pageName,tick} from './model.js';import {cropSpan,cropFigure} from './source-view.js';
+import {abortIfNeeded,pageName,tick,resolveResultReferences} from './model.js';import {cropSpan,cropFigure} from './source-view.js';
 let libraries;
 async function loadLibraries(){
   if(!libraries)libraries=(async()=>{if(typeof window==='undefined')return {pdf:await import('pdf-lib'),fontkit:(await import('@pdf-lib/fontkit')).default};
@@ -9,6 +9,7 @@ async function loadLibraries(){
 async function fontBytes(){const url=new URL('../assets/NotoSans-Regular.ttf',import.meta.url);if(typeof window==='undefined'){return (await import('node:fs/promises')).readFile(url);}const response=await fetch(url);if(!response.ok)throw new Error('Unable to load the export font.');return new Uint8Array(await response.arrayBuffer());}
 export async function exportPacket(session,results,{signal,onProgress=()=>{},includeCrops=true}={}){
   abortIfNeeded(signal);const {pdf:lib,fontkit}=await loadLibraries();abortIfNeeded(signal);const pdf=await lib.PDFDocument.create();pdf.registerFontkit(fontkit);const font=await pdf.embedFont(await fontBytes(),{subset:true});abortIfNeeded(signal);
+  resolveResultReferences(session,results);
   const supported=new Set(font.getCharacterSet()),width=595.28,height=841.89,margin=40,usable=width-2*margin;let page,y;
   const newPage=()=>{page=pdf.addPage([width,height]);y=height-margin;};newPage();
   function write(raw,size=10,gap=5){
@@ -20,7 +21,7 @@ export async function exportPacket(session,results,{signal,onProgress=()=>{},inc
     for(const line of rows){abortIfNeeded(signal);if(y-size<margin+18)newPage();y-=size;page.drawText(line,{x:margin,y,size,font,color:lib.rgb(.12,.15,.14)});y-=size*.45;}y-=gap;
   }
   async function image(blob,label){abortIfNeeded(signal);const png=await pdf.embedPng(await blob.arrayBuffer()),scale=Math.min(usable/png.width,220/png.height),w=png.width*scale,h=png.height*scale;if(y-h-35<margin+18)newPage();write(label,8,3);y-=h;page.drawImage(png,{x:margin,y,width:w,height:h});y-=12;}
-  write('Book Passage Finder',18,6);write(session.name||'Selected textbook',9,10);
+  write('Book Passage Finder',18,6);write(session.filename||session.name||'Selected textbook',9,10);
   for(const [i,result]of results.entries()){
     abortIfNeeded(signal);onProgress({phase:'Building PDF',completed:i,total:results.length});write(`Q${i+1}. ${result.question.text}`,12,8);
     write(result.status==='no-match'?'No reliable match in this book.':result.status==='partial'?'Partial matches — check the remaining details in the book.':'Selected source passages',9,8);
