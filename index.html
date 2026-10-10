@@ -25,11 +25,12 @@
     <section class="results-panel" aria-labelledby="results-heading">
       <div class="results-top"><div><p class="eyebrow">FROM YOUR TEXTBOOK</p><h2 id="results-heading">Your passages</h2></div><button id="export" class="secondary" type="button" disabled>Download PDF</button></div>
       <div id="empty-results" class="empty-results"><div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>THE RIGHT PAGE</span><i></i><i></i><i class="short-line"></i><div class="paper-highlight"></div><i></i><i class="short-line"></i><b>p.</b></div></div><h3>A source you can point to.</h3><p>Choose a book and add a question.<br>We’ll find the passages and keep the page attached.</p><div class="empty-foot">EXACT WORDS <span>·</span> ORIGINAL CROPS <span>·</span> YOUR SELECTION</div></div>
+      <nav id="question-navigation" class="question-navigation" aria-label="Question results" hidden><div class="question-selector"><label for="question-select">Review question</label><select id="question-select"></select></div><div class="question-navigation-actions"><span id="question-position"></span><button id="question-previous" class="secondary" type="button">← Previous</button><button id="question-next" class="secondary" type="button">Next →</button></div><p id="export-help">The PDF includes your selections from every question.</p></nav>
       <div id="results" aria-live="polite"></div>
     </section>
   </div>
   <footer><span>Made for finding the source.</span><p>Search runs in your browser. OCR downloads language assets. Book references reflect your uploaded edition.</p></footer>
 </main>
-<dialog id="source-dialog"><div class="dialog-head"><div><p class="eyebrow">ORIGINAL SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="source-stage"></div><div id="crop-controls"></div></dialog>
+<dialog id="source-dialog"><div class="dialog-head"><div><p class="eyebrow">ORIGINAL SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="crop-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div></dialog>
 <script type="module" src="./src/main.js"></script>
 </body></html>

@@ -18,9 +18,9 @@ Open http://127.0.0.1:4173/. `npm.cmd test` runs the regression suite. `node scr
 
 1. Choose a textbook PDF. Text extraction and search run in your browser.
 2. Paste questions, one numbered question per new line, or import an assignment PDF/image. The importer filters assignment titles, course labels, page numbers and repeated page headers; wrapped lines and lettered subparts stay together. It also recognizes clear prompts when OCR omits numbering punctuation. Check imported text before searching.
-3. Click **Find passages**. Quotes are short by default, around 200 words per question. Search uses book text and headings; it does not write new answers.
-4. Use **View in book** to inspect the page. Adjust diagram crops with the percentage fields or by dragging, then include the diagrams you need. A suggestion can be wrong; inspect it before checking its box.
-5. Remove unwanted passages, or use **More context** to expand one. Download the selected packet. Original paragraph crops can include surrounding text.
+3. Click **Find passages**. Quotes are short by default, around 200 words per question. Use **Review question** or **Previous / Next** to review one answer at a time. Search uses book text and headings; it does not write new answers.
+4. Expand **Show original page crop** or use **View in book** to inspect the page. Diagram and table checkboxes open a crop review before inclusion. Adjust the percentage fields, or drag with a mouse/pen, then choose **Include selected crop**. On touch screens, swipe to scroll the page and use the fields to adjust the crop. Suggested bounds need checking, especially for scanned graphics or tables that continue onto another page.
+5. Remove unwanted passages, or use **More context** to expand one. Download the selected packet: it includes selections from every question, including those currently hidden by the question picker. Original paragraph crops can include surrounding text.
 
 For scanned pages, expand **Recognize selected pages** and enter physical PDF pages, such as `20-25`. English OCR downloads a language asset when first used and can take longer on a phone. Recognize up to 30 pages per batch. Check OCR words against the original image.
 

@@ -1,16 +1,36 @@
 import {wordCount} from './model.js';
-const stop=new Set('a an the and or of to in on at by for with from is are be was were what why how when which who discuss describe explain give state write list compare according per as using used use given answer question show graph graphs diagram diagrams figure figures method methods test tests measure measuring measurement measurements standard standards astm indian british'.split(' '));
+const stop=new Set('a an the and or of to in on at by for with from is are be was were what why how when which who discuss describe explain give state write list compare according per as using used use given answer question show graph graphs diagram diagrams figure figures method methods test tests measure measuring measurement measurements standard standards astm indian british short note notes briefly brief'.split(' '));
 const forms={measured:'measure',measures:'measure',measuring:'measure',measurement:'measure',measurements:'measure',workabilities:'workability',compacted:'compact',compacting:'compact',compaction:'compact',densities:'density'};
 for(const term of 'book textbook this that it they them we you he she do does did has have had can could should would will shall must into about such also some any other all its their these those two three each both needed relevant explanation described including include report reports reports determining determine laboratory chapter edition distinguish definition define identify introduced changes change approved procedure only same amount achieved obtain records recorded compares compare advantages limitations forms form give shown difference differences differ relating relation degree suitable'.split(' '))stop.add(term);
 export function tokens(text){return (text.toLowerCase().match(/[a-z][a-z0-9]+|\d{3,4}/g)||[]).map(t=>forms[t]|| (t.length>4&&t.endsWith('s')&&!t.endsWith('ss')?t.slice(0,-1):t));}
 const meaningful=text=>tokens(text).filter(t=>!stop.has(t));
+function isSourceListing(span){
+  const listingLabel=value=>/^(?:references?|generalreferencebooks?|bibliograph(?:y|ies)|furtherreading|recommendedreading|workscited|(?:tableof)?contents)$/.test((value||'').toLowerCase().replace(/[^a-z]/g,''));
+  if(listingLabel(span.section)||listingLabel(span.heading))return true;
+  if((span.text.match(/[!•]/g)||[]).length>=3&&!/[.?]/.test(span.text))return true;
+  // A numbered author entry with publication metadata is a citation. A
+  // numbered explanation that mentions ASTM or a year is still useful prose.
+  return /^\s*(?:\[\d+\]|\d+(?:\.\d+)*[.)]?)\s+[A-Z][a-z'-]+\s+(?:[A-Z]\.\s*){1,3}/.test(span.text)
+    && /\b(?:journal|publication|proceedings|press|publisher|publishing)\b/i.test(span.text)
+    && /\b(?:18|19|20)\d{2}\b/.test(span.text);
+}
 export function buildIndex(spans){
-  const df=new Map();const headingTerms=new Set();const docs=spans.map(span=>{
+  const df=new Map();const headingTerms=new Set();let previous=null,headingLabel='',rawHeading='';
+  const docs=spans.filter(span=>!isSourceListing(span)).map((span,order)=>{
+    if(span.isHeading){
+      const a=previous?.segments[0],b=span.segments[0],ra=a?.rects?.at(-1),rb=b?.rects?.[0];
+      const wrapped=previous?.isHeading&&a?.page.pdfPage===b?.page.pdfPage&&ra&&rb
+        &&Math.abs(ra.x-rb.x)<.015&&rb.y>=ra.y+ra.height-.002&&rb.y-ra.y-ra.height<.012
+        &&Math.max(ra.height,rb.height)/Math.max(Math.min(ra.height,rb.height),.001)<1.35
+        &&wordCount(headingLabel+' '+span.text)<=14;
+      headingLabel=wrapped?headingLabel+' '+span.text:span.heading||span.text;rawHeading=span.heading||span.text;
+    }
+    const logicalHeading=span.heading===rawHeading?headingLabel:span.heading||'';previous=span;
     const embedded=span.text.match(/^([A-Z][A-Za-z -]{2,45}(?:Test|Method|Apparatus))\s+(?:The|This|A|An)\b/);
-    const terms=tokens(span.text),heading=meaningful(embedded?.[1]||span.heading||'');const tf=new Map();if(span.isHeading||embedded)for(const t of heading)headingTerms.add(t);
+    const terms=tokens(span.text),heading=meaningful(embedded?.[1]||logicalHeading);const tf=new Map();if(span.isHeading||embedded)for(const t of heading)headingTerms.add(t);
     for(const t of terms)tf.set(t,(tf.get(t)||0)+1);
     for(const t of new Set([...terms,...heading]))df.set(t,(df.get(t)||0)+1);
-    return {span,tf,heading:new Set(heading),headingPhrase:` ${heading.join(' ')} `,phraseText:` ${meaningful(span.text).join(' ')} `,length:Math.max(terms.length,1)};
+    return {span,order,tf,heading:new Set(heading),headingPhrase:` ${heading.join(' ')} `,phraseText:` ${meaningful(span.text).join(' ')} `,length:Math.max(terms.length,1)};
   });
   return {docs,df,headingTerms,average:docs.reduce((s,d)=>s+d.length,0)/Math.max(docs.length,1)};
 }
@@ -21,7 +41,7 @@ function sentenceWindows(text){
     if(!/[.!?]/.test(text[i]))continue;
     if(text[i]==='.'&&/\d/.test(text[i-1]||'')&&/\d/.test(text[i+1]||''))continue;
     const prefix=text.slice(Math.max(0,i-12),i+1),suffix=text.slice(i+1);
-    if(text[i]==='.'&&(/(?:^|\s)(?:Fig|Figs|No|Dr|Mr|Mrs|sq|e\.g|i\.e)\.$/i.test(prefix)||(/[A-Z]\.$/.test(prefix)&&/^[A-Z]\./.test(suffix))))continue;
+    if(text[i]==='.'&&(/(?:^|\s)(?:Fig|Figs|No|Dr|Mr|Mrs|sq|e\.g|i\.e)\.$/i.test(prefix)||(/[A-Z]\.$/.test(prefix)&&/^[A-Z]\./.test(suffix))||(/\b(?:[A-Z]\.\s*){2,}$/.test(prefix)&&/^\s+[A-Z][a-z]/.test(suffix))))continue;
     let end=i+1;while(/[.!?"”')]/.test(text[end]||' ')&&end<text.length)end++;
     if(end===text.length||/\s/.test(text[end])){add(end);i=end-1;}
   }if(start<text.length)add(text.length);return parts;
@@ -65,8 +85,10 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
   const anchorPage=anchor.span.segments[0].page.pdfPage;
   const topicOverview=index.docs.filter(d=>!d.span.isHeading&&d.span.heading===anchor.span.heading&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=2);
   broad=broad&&topicOverview.some(d=>/^\s*\(?\s*(?:[a-z]|\d+)\s*\)/i.test(d.span.text)||/following.*(?:methods|tests)|(?:tested|measured|determined).*?(?:ways|methods)|(?:several|different|various).*?(?:methods|tests)/i.test(d.span.text));
+  const exactTopic=!broad&&!unknown.length&&core.length>=2&&core.every(t=>anchor.heading.has(t));
   const lead=index.docs.find(d=>hasProse(d)&&d.span.heading===anchor.span.heading&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=2);
   let candidates=ranked.filter(d=>!d.span.isHeading&&!/^fig(?:ure)?\.?\s*\d/i.test(d.span.text)&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=14);
+  if(exactTopic)candidates=candidates.filter(d=>d.headingPhrase===anchor.headingPhrase);
   if(broad){
     const overview=index.docs.filter(d=>!d.span.isHeading&&d.span.heading===anchor.span.heading&&Math.abs(d.span.segments[0].page.pdfPage-anchorPage)<=2);
     const enumeration=overview.filter(d=>/^\s*\(?\s*(?:[a-z]|\d+|[ivx]+)\s*\)/i.test(d.span.text));
@@ -91,13 +113,15 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
       const novelty=headings.has(doc.facet||doc.span.heading)? .12:1;
       const near=1/(1+distance*.04);
       const qualifierBoost=result.passages.length>=4&&qualifiers.length&&qualifiers.some(t=>doc.tf.has(t))&&!result.passages.some(p=>tokens(p.text).includes('astm'))?anchor.score*4:0;
-      const value=(doc.score||score(doc))*novelty*near+qualifierBoost+(!broad&&doc.span.id===lead?.span.id?anchor.score*1.5:0);
+      // When the question names a full heading, retain its explanation in
+      // source order rather than favoring later repetitions of title words.
+      const value=exactTopic?1/(1+doc.order):(doc.score||score(doc))*novelty*near+qualifierBoost+(!broad&&doc.span.id===lead?.span.id?anchor.score*1.5:0);
       if(value>bestValue){best=doc;bestValue=value;}
     }
     if(!best)break;selected.add(best.span.id);
     const remaining=wordBudget-used;const allowance=broad?Math.min(remaining,38):Math.min(remaining,round===0?120:80);
     const forQualifier=(!broad||result.passages.length>=4)&&qualifiers.some(t=>best.tf.has(t));
-    const passage=chooseWindow(best.span,allowance,forQualifier?new Set(qualifiers):new Set([...query,...meaningful(best.span.heading)]),broad&&!forQualifier);
+    const passage=chooseWindow(best.span,allowance,forQualifier?new Set(qualifiers):new Set([...query,...meaningful(best.span.heading)]),exactTopic||broad&&!forQualifier);
     if(!passage)continue;
     if(result.passages.some(p=>p.text===passage.text))continue;
     result.passages.push(passage);used+=wordCount(passage.text);headings.add(best.facet||best.span.heading);
