@@ -39,4 +39,12 @@ For scanned pages, expand **Recognize selected pages** and enter physical PDF pa
 
 `dist/` contains the static app. It can be served on any static host supporting ES modules, workers and WASM. `.openai/hosting.json` preserves this app's Sites identity. No uploaded book, assignment, saved browser data or private evaluation fixture belongs in the source repository or deployment.
 
+### GitHub Pages
+
+Push this source to the `main` branch of a public GitHub repository. In the repository, choose **Settings → Pages → Source → GitHub Actions**. The included `.github/workflows/pages.yml` installs the pinned dependencies, runs tests, builds and verifies `dist/`, and publishes it. Subsequent pushes to `main` update the site automatically. If Pages is enabled after the initial push, run **Publish Book Passage Finder** from the Actions tab once.
+
+All app assets and workers use relative URLs, so the site supports a repository URL such as `https://YOUR-ACCOUNT.github.io/book-passage-finder/`. Hosting changes the browser origin: books optionally saved in the old site's browser storage must be selected again on the new site.
+
+For another static host, use `npm ci` as the install command, `npm run build` as the build command, and `dist` as the publish directory. No server, database, API key or hosted document storage is needed.
+
 See `THIRD_PARTY_NOTICES.md` for dependency licenses.
