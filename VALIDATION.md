@@ -39,3 +39,16 @@ A private diagnostic reproduced the embedded browser error, "prompt() is not sup
 Cancellation from the final extraction progress callback can still resolve an internal session. The app rejects the cancelled job before accepting or indexing it. This was deferred after review; the main interface guards against displaying it.
 
 No supplied textbook or private evaluation excerpts are included in this repository or deployment.
+
+## Assignment detection repair
+
+The reported screenshot counted an assignment title as Q1. The PDF importer also joined every page before parsing, which included cover/certificate text and attached later group headings to prior questions. Numeric decimal table cells could be mistaken for question labels.
+
+- Fourteen synthetic regressions cover title/course/footer filtering, repeated headers, wrapped lines and subparts, plain prompts, inline numbering versus decimals, OCR numbers without punctuation, legitimate General/Assignment/Chapter wording, continuation across page breaks, and word ordering with different box heights. Failing cases were observed before their fixes.
+- The full suite passes 57/57. A clean build and distribution check pass with 250 assets / 51.5 MB.
+- The original 11-page assignment was tested locally, including in the browser. Import returns 99 numbered questions and excludes the cover/certificate and assignment headings. An independent extraction counted 99 numbered starts. PDF extraction can add spacing or vary punctuation; complex tables remain editable context and still require checking.
+- An image rendered from the first question page was imported through actual browser OCR. It returns the six questions shown on that page, without the Assignment/Tutorial or General heading.
+- A private image-only PDF of that same page also returns the six complete questions. The first scan run exposed small lowercase words being moved to a separate line because their box tops differ from capitals. Baseline grouping reproduced this through a failing mixed-font PDF regression and was fixed; real scan OCR then retained the complete wording in order.
+- A separate agent supplied regression cases and made a focused read-only parser check; identified losses involving OCR numbering, Enlist prompts, page headers and chapter-labelled prompts were reproduced and fixed.
+
+Detection uses local text/layout heuristics and English OCR. It cannot guarantee every language, photograph or unusual assignment layout. No user assignment or image is included in the source or distribution.

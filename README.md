@@ -17,7 +17,7 @@ Open http://127.0.0.1:4173/. `npm.cmd test` runs the regression suite. `node scr
 ## Use it
 
 1. Choose a textbook PDF. Text extraction and search run in your browser.
-2. Paste questions, one numbered question per new line, or import an assignment PDF/image. Check imported text before searching.
+2. Paste questions, one numbered question per new line, or import an assignment PDF/image. The importer filters assignment titles, course labels, page numbers and repeated page headers; wrapped lines and lettered subparts stay together. It also recognizes clear prompts when OCR omits numbering punctuation. Check imported text before searching.
 3. Click **Find passages**. Quotes are short by default, around 200 words per question. Search uses book text and headings; it does not write new answers.
 4. Use **View in book** to inspect the page. Adjust diagram crops with the percentage fields or by dragging, then include the diagrams you need. A suggestion can be wrong; inspect it before checking its box.
 5. Remove unwanted passages, or use **More context** to expand one. Download the selected packet. Original paragraph crops can include surrounding text.
