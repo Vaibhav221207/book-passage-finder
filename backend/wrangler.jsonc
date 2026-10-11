@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "book-passage-finder-answers",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-10",
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [{ "name": "USAGE_BUDGET", "class_name": "UsageBudget" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["UsageBudget"] }],
+  "vars": {
+    "ALLOW_LOCALHOST": "false",
+    "GLOBAL_DAILY_LIMIT": "100",
+    "CLIENT_DAILY_LIMIT": "8",
+    "IP_DAILY_LIMIT": "100"
+  }
+}

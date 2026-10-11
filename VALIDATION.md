@@ -1,5 +1,17 @@
 # Verification record
 
+## Student workspace and managed-answer release — 11 October 2026
+
+- Fresh automated suite: 192/192 tests pass. The answer compiler preserves exact source sentences, independent book identities and the 200/300/450 word budgets. The managed client and Worker cover source validation, safe errors, cancellation, no automatic retries, atomic daily caps and supported response envelopes.
+- The supplied 647-page PDF and 11-page assignment were loaded again using PDF.js 6.4.299. Import retains 99 questions. Three-question verification returns book drafts of 283 and 90 words and no draft for the unsupported compound topic. A four-page PDF export retains the question set, source mappings and confirmed table selection.
+- A private 60-case question/length matrix passes source-substring, word-count, citation and mutation checks: 51 evidence answers and nine no-match cases. These checks do not establish complete or accurate answers.
+- A new regression rejects an absent leading compound subject even when other words match, while later unsupported parts still produce partial coverage. All 40 focused search tests pass.
+- PDF.js was updated to the security-patched 6.4.299 release. Its native test canvas is aligned to 1.0.11; PDF loading-task cleanup replaces the removed document-proxy cleanup method. The dependency audit reports zero known vulnerabilities. Native rendering of the supplied table still loses some glyphs; browser rendering must be checked separately before claiming the crop is correct.
+- The layout uses 18 px answer/passage text, clearer input controls and collapsed evidence. Local preview browser access was blocked by browser policy during this check; no bypass was attempted. Production browser verification remains pending.
+- Cloudflare's Worker deployed successfully on the owner's confirmed Workers Free account, with 100 global, eight browser and 100 shared-IP attempted requests per UTC day. The live inference check exposed a response-envelope mismatch; the adapter now accepts string, structured and complete chat envelopes while preserving answer validation. Shared AI remains disabled in the frontend until live book/general requests succeed. Temporary response-shape diagnostics were removed.
+
+This section records checks at source publication; deployment follow-up records below supersede pending items when verified.
+
 Verified on Windows on 10 October 2026. Source search stays local; the optional AI explanation feature sends selected text to OpenRouter when requested. Earlier records below describe the versions tested at that time. The tool does not certify complete answers or current standards.
 
 ## Multiple books, AI explanations and screenshot improvements

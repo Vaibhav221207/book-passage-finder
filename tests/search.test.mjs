@@ -47,6 +47,20 @@ test('an absent primary subject cannot be answered by incidental known terms',()
   const fixture=[span('chem','The independent chemical reaction depends on light and heat.','Light reactions',2)];
   const r=api.searchQuestion(api.buildIndex(fixture),{id:'q',text:'Explain photosynthesis and distinguish its light-dependent and light-independent reactions.'});assert.equal(r.status,'no-match');assert.equal(r.passages.length,0);
 });
+test('an absent compound subject cannot be answered by its first word and a known context',()=>{
+  const fixture=[span('concrete','Quantum effects are a feature of cement. Concrete shrinkage develops as moisture is lost from the mixture.','Concrete shrinkage',2)];
+  for(const text of ['Explain quantum entanglement in concrete.','Write a note on quantum teleportation in cement.']){
+    const r=api.searchQuestion(api.buildIndex(fixture),{id:'q',text});
+    assert.equal(r.status,'no-match',text);assert.deepEqual(r.passages,[],text);
+  }
+});
+test('an unknown later requested part or standard leaves a known compound subject partial',()=>{
+  const fixture=[span('concrete','Concrete shrinkage develops as moisture is lost from the mixture. Careful curing reduces the loss of moisture from concrete.','Concrete shrinkage',2)];
+  for(const text of ['Explain concrete shrinkage and entanglement in cement.','Explain concrete shrinkage, then discuss entanglement in cement.','Explain concrete shrinkage according to spectral standards.']){
+    const r=api.searchQuestion(api.buildIndex(fixture),{id:'q',text});
+    assert.equal(r.status,'partial',text);assert.ok(r.passages.some(p=>p.text.includes('Concrete shrinkage')),text);
+  }
+});
 test('single-letter sentence fragments cannot fill the remaining word budget',()=>{
   const fixture=[span('f','K. The workability apparatus measures resistance to penetration.','Workability',1)];
   const r=api.searchQuestion(api.buildIndex(fixture),{id:'q',text:'Discuss workability.'},{wordBudget:3});assert.ok(r.passages.every(p=>p.text!=='K.'));

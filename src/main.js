@@ -7,10 +7,13 @@ import {getBook} from './library.js';
 import {requestText} from './text-dialog.js';
 import {buildAnswerSources,requestExplanation} from './ai.js';
 import {findAnswerPassage} from './answer-source.js';
+import {compileBookAnswer} from './book-answer.js';
+import {requestManagedExplanation,getAnonymousClientId} from './managed-ai.js';
+import {MANAGED_AI_ENDPOINT} from './service-config.js';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
-let worker,libraryId,abortController,resultRevision=0,apiKey='',sourceOpening=false;
+let worker,libraryId,abortController,resultRevision=0,apiKey='',sourceOpening=false,aiAllowance;
 const context=()=>({books:state.books});
 const targetWords=()=>Number($('answer-length').value)||300;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
@@ -19,11 +22,11 @@ function message(text,error=false){$('message').textContent=text;$('message').hi
 function updateControls(){
   const busy=!!state.activeJob;state.questions=parseQuestions($('questions').value);
   $('find').disabled=busy||!state.books.length||!state.questions.length;
-  $('export').disabled=busy||!state.results.some(r=>r.passages.length||r.figures.some(f=>f.confirmed)||r.explanation);
+  $('export').disabled=busy||!state.results.some(r=>r.passages.length||r.figures.some(f=>f.confirmed)||r.explanation||r.bookAnswer);
   $('run-ocr').disabled=busy||!state.session;$('book-tools').hidden=!state.session;$('progress-area').hidden=!busy;
   for(const id of ['book-file','assignment-file','active-book','answer-length','questions','save-book','page-label','saved-books','delete-saved','connect-ai'])$(id).disabled=busy;
-  for(const b of document.querySelectorAll('#library-books button, #results button, #results input'))b.disabled=busy;
-  const n=state.questions.length;$('question-count').textContent=n?`${n} question${n===1?'':'s'} detected`:'No questions yet';
+  for(const b of document.querySelectorAll('#library-books button, #results button, #results input'))b.disabled=busy||(b.dataset.needsAi==='true'&&!apiKey&&!MANAGED_AI_ENDPOINT);
+  const n=state.questions.length;$('question-count').textContent=n?`${n} question${n===1?'':'s'} detected`:'No questions yet';serviceStatus();
 }
 function progress(p){$('progress-label').textContent=`${p.phase} · ${p.completed} / ${p.total}`;$('progress').max=p.total||100;$('progress').value=p.completed||0;}
 async function operate(task){
@@ -99,38 +102,46 @@ function keyStatus(){
   $('ai-connection').textContent=apiKey?'Key ready for this tab. Free requests only.':'Optional. Book search works without a key.';
   $('disconnect-ai').hidden=!apiKey;$('connect-ai').textContent=apiKey?'Replace key':'Use this key';
 }
-$('connect-ai').addEventListener('click',()=>{const key=$('ai-key').value.trim();if(!key){message('Paste your OpenRouter key in the AI settings field.',true);$('ai-key').focus();return;}apiKey=key;$('ai-key').value='';keyStatus();message('Key ready. Use Generate explanation on a question to send its selected text.');});
-$('disconnect-ai').addEventListener('click',()=>{apiKey='';$('ai-key').value='';abortController?.abort();controller.cancel();keyStatus();updateControls();message('OpenRouter key cleared from this tab.');});
+function serviceStatus(){
+  const host=$('ai-service-status');if(!host)return;
+  host.textContent=apiKey?'Personal AI is connected. Book answers are always available.':!MANAGED_AI_ENDPOINT?'Book answers work without setup. Shared AI is not connected yet.':aiAllowance&&Date.parse(aiAllowance.resetAt)>Date.now()?`${aiAllowance.remaining} AI requests left in your daily allowance. Book answers are always available.`:'Shared AI: up to 8 requests daily, within the app allowance. No account or download needed.';
+}
+$('connect-ai').addEventListener('click',()=>{const key=$('ai-key').value.trim();if(!key){message('Paste your OpenRouter key in the advanced AI settings field.',true);$('ai-key').focus();return;}apiKey=key;$('ai-key').value='';keyStatus();renderResults();message('Personal AI connected for this tab.');});
+$('disconnect-ai').addEventListener('click',()=>{apiKey='';$('ai-key').value='';abortController?.abort();controller.cancel();keyStatus();renderResults();message('Personal key cleared. Book answers remain available.');});
 async function explain(result){
   if(state.activeJob)return;
-  if(!apiKey){$('ai-settings').open=true;$('ai-settings').scrollIntoView({block:'center'});$('ai-key').focus();message('Add your own OpenRouter key to generate an explanation.',true);return;}
+  if(!apiKey&&!MANAGED_AI_ENDPOINT){message('Shared AI is not connected yet. Your answer from the books is ready to read and download.');return;}
   const sources=buildAnswerSources(result),mode=sources.length?'book':'general',ticket=controller.explanationTicket(result);
+  // A failed or cancelled attempt may still consume a reserved request.
+  // Keep a count only when the service has confirmed it for this attempt.
+  if(!apiKey)aiAllowance=undefined;
   await operate(async(signal,job)=>{
-    progress({completed:0,total:1,phase:'Writing a college-level explanation'});
-    const answer=await requestExplanation({apiKey,question:result.question.text,sources,targetWords:targetWords(),mode,signal});
+    progress({completed:0,total:1,phase:'Making your answer clearer'});
+    const answer=apiKey?await requestExplanation({apiKey,question:result.question.text,sources,targetWords:targetWords(),mode,signal}):await requestManagedExplanation({endpoint:MANAGED_AI_ENDPOINT,clientId:getAnonymousClientId(),question:result.question.text,sources,targetWords:targetWords(),mode,signal});
     abortIfNeeded(signal);if(state.activeJob!==job)return;
-    if(controller.attachExplanation(ticket,answer)){message(mode==='book'?'Explanation ready. Check the cited passages for accuracy.':'General AI explanation ready. It is not verified against your books.');progress({completed:1,total:1,phase:'Explanation ready'});}
+    if(controller.attachExplanation(ticket,answer)){if(answer.allowance)aiAllowance=answer.allowance;message(mode==='book'?'AI answer ready. Check the linked source pages.':'General AI answer ready. It is not verified against your books.');progress({completed:1,total:1,phase:'Answer ready'});}
   });renderResults();
 }
 function renderExplanation(card,result){
-  const area=node('section','explanation-area');area.append(node('h4','','College-level explanation'));
-  area.append(node('p','explanation-help',result.passages.length?'Write an explanation using the selected textbook passages and cite them.':result.status==='no-match'?'No match found in the open books. Add another book, recognize scanned pages, or request a general explanation.':'No source passages selected. Search again to restore them, or request a general explanation.'));
-  const actions=node('div','explanation-actions');actions.append(button(result.passages.length?'Generate explanation':'Generate general AI explanation',()=>explain(result),'secondary'));
-  const answer=result.explanation;
+  const area=node('section','explanation-area');area.append(node('h4','','Your study answer'));
+  const answer=result.explanation||result.bookAnswer;
+  if(!answer)area.append(node('p','explanation-help',result.passages.length?'The selected passages do not contain complete sentences for a draft. Review the source or try AI.':'These books do not provide a reliable answer. Add another textbook or your lecture notes, or try an unverified general AI answer.'));
+  const actions=node('div','explanation-actions'),aiButton=button(result.explanation?'Rewrite with AI':result.passages.length?'Improve with AI':'Try a general AI answer',()=>explain(result),'secondary');aiButton.dataset.needsAi='true';actions.append(aiButton);
   if(answer){
-    const label=answer.mode==='general'?'General AI explanation · not verified against your books':'AI-written explanation · based on selected passages';
-    const draft=node('div',`answer-draft ${answer.mode}`);draft.append(node('p','answer-label',label));if(answer.title)draft.append(node('h4','',answer.title));
+    const label=answer.mode==='general'?'General AI answer · not verified against your books':answer.mode==='extractive'?'Organized textbook sentences · linked to the original pages':'AI explanation · based on the selected book passages';
+    const draft=node('div',`answer-draft ${answer.mode} ${answer.mode==='extractive'?'book-answer':''}`);draft.append(node('p','answer-label',label));if(answer.title&&answer.title!=='Answer from your books')draft.append(node('h4','',answer.title));
     for(const section of answer.sections){if(section.heading)draft.append(node('h5','',section.heading));draft.append(node('p','answer-text',section.text));
       const citations=node('div','answer-citations');for(const id of section.sourceIds){const source=answer.sources.find(s=>s.id===id);if(!source)continue;citations.append(button(`[${id}] ${source.bookName||'Source'}`,()=>{const passage=findAnswerPassage(result,source);if(passage)viewSource(passage,null,result);}));}if(citations.childNodes.length)draft.append(citations);
     }
     for(const gap of answer.missingDetails||[])draft.append(node('p','coverage-note',gap));
-    draft.append(node('p','answer-model',`${answer.model} · ${answer.sections.reduce((n,s)=>n+wordCount(s.text),0)} words`));
-    actions.append(button('Copy explanation',async()=>{try{const text=[label,answer.title,...answer.sections.map(s=>`${s.heading?s.heading+'\n':''}${s.text}${s.sourceIds.length?' ['+s.sourceIds.join(', ')+']':''}`),...(answer.missingDetails||[]),...answer.sources.map(s=>`[${s.id}] ${s.pages.map(pageName).join(' / ')}`)].join('\n\n');await navigator.clipboard.writeText(text);message('Explanation copied with its source references.');}catch{message('Copy is unavailable here. Select the explanation text to copy it.',true);}}));
-    actions.append(button('Remove explanation',()=>{delete result.explanation;renderResults();}));area.append(draft);
+    draft.append(node('p','answer-model',`${answer.sections.reduce((n,s)=>n+wordCount(s.text),0)} words · ${answer.mode==='extractive'?'assembled on your device':'review the source before using'}`));
+    actions.append(button('Copy answer',async()=>{try{const text=[label,answer.title,...answer.sections.map(s=>`${s.heading?s.heading+'\n':''}${s.text}${s.sourceIds.length?' ['+s.sourceIds.join(', ')+']':''}`),...(answer.missingDetails||[]),...answer.sources.map(s=>`[${s.id}] ${s.pages.map(pageName).join(' / ')}`)].join('\n\n');await navigator.clipboard.writeText(text);message('Answer copied with its source references.');}catch{message('Copy is unavailable here. Select the answer text to copy it.',true);}}));
+    if(result.explanation)actions.append(button('Use book answer',()=>{delete result.explanation;renderResults();}));area.append(draft);
   }
-  area.append(actions,node('p','explanation-help','About '+targetWords()+' words when the sources support it. OpenRouter receives the question and selected passages only after you generate.'));card.append(area);
+  area.append(actions,node('p','explanation-help',!MANAGED_AI_ENDPOINT&&!apiKey?'Book answers need no account, key or download. Shared AI is currently unavailable.':`AI aims for about ${targetWords()} words. It sends the question and selected text to ${apiKey?'OpenRouter':'our AI service'} when you click; your full PDFs stay here.`));card.append(area);
 }
 async function renderResults(){
+  for(const r of state.results)r.bookAnswer=compileBookAnswer(r,{targetWords:targetWords()});
   const revision=++resultRevision,host=$('results');host.replaceChildren();$('empty-results').hidden=state.results.length>0;updateControls();
   const result=controller.currentResult(),i=state.activeQuestionIndex,library=context();$('question-navigation').hidden=!result;if(!result)return;
   $('question-select').replaceChildren(...state.results.map((r,n)=>new Option(`Q${n+1} · ${r.question.text}`,String(n))));$('question-select').value=String(i);
@@ -138,10 +149,10 @@ async function renderResults(){
   const card=node('article','question-card'),head=node('div','question-header');head.append(node('span','q-number',`Q${i+1}`),node('h3','',result.question.text));
   card.append(head,node('span',`result-status ${result.status}`,result.status==='no-match'?'No match found in open books':!result.passages.length?'No passages selected':`${result.status==='partial'?'Partial matches':'Source matches'} · ${result.passages.reduce((s,p)=>s+wordCount(p.text),0)} source words`));renderExplanation(card,result);
   if(result.bookSummaries?.length>1){const notes=node('details','book-coverage');notes.append(node('summary','',`Searched ${result.bookSummaries.length} books`));for(const b of result.bookSummaries)notes.append(node('p','',`${b.name}: ${b.status==='no-match'?'no reliable passage':b.status==='partial'?'partial matches':'source matches'}`));card.append(notes);}
-  if(result.passages.length)card.append(node('h4','source-heading','Textbook passages'));
+  const evidence=node('details','evidence-details');if(result.passages.length){evidence.append(node('summary','',`Book passages and screenshots (${result.passages.length})`));card.append(evidence);}
   for(const passage of result.passages){
     const wrap=node('div','passage');wrap.append(node('blockquote','',passage.text));const meta=node('div','passage-meta',passage.segments.map(s=>pageName(s.page)).join(' / '));if(passage.segments.some(s=>s.method==='ocr'))meta.append(node('span','','OCR · check the image'));wrap.append(meta);
-    const actions=node('div','passage-actions');actions.append(button('View in book',()=>viewSource(passage,null,result)),button('More context',async()=>{if(state.activeJob)return;const book=getBook(library,passage.bookId||passage.segments[0]?.page.bookId),{expandPassage,buildIndex}=await import('./search.js');const full=expandPassage(buildIndex(book.spans),passage);Object.assign(passage,full,{originId:full.id});delete result.explanation;renderResults();}),button('Remove',()=>{controller.removePassage(result.question.id,passage.id);renderResults();},'text-button remove-button'));wrap.append(actions);card.append(wrap);
+    const actions=node('div','passage-actions');actions.append(button('View in book',()=>viewSource(passage,null,result)),button('More context',async()=>{if(state.activeJob)return;const book=getBook(library,passage.bookId||passage.segments[0]?.page.bookId),{expandPassage,buildIndex}=await import('./search.js');const full=expandPassage(buildIndex(book.spans),passage);Object.assign(passage,full,{originId:full.id});delete result.explanation;renderResults();}),button('Remove',()=>{controller.removePassage(result.question.id,passage.id);renderResults();},'text-button remove-button'));wrap.append(actions);evidence.append(wrap);
     const preview=node('details','source-preview');preview.append(node('summary','','Show original page crop'));wrap.insertBefore(preview,actions);let loaded=false;
     preview.addEventListener('toggle',async()=>{if(!preview.open||loaded)return;loaded=true;const loading=node('p','','Loading source crop…');preview.append(loading);
       try{const {cropSpan}=await import('./source-view.js'),crops=await cropSpan(library,passage,{scale:2});if(revision!==resultRevision)return;loading.remove();

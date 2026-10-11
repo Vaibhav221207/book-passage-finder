@@ -116,6 +116,18 @@ function parseExplanation(content, sources, mode, maxWords) {
   };
 }
 
+// Shared citation and shape checks for both personal and app-managed services.
+export function prepareExplanationSources(sources, mode='book') {
+  if (!['book','general'].includes(mode)) throw invalidInput();
+  return mode === 'book' ? copySources(sources) : [];
+}
+export function validateExplanationContent(content, {sources=[],mode='book',targetWords=300,model=FREE_EXPLANATION_MODEL}={}) {
+  if (!Number.isInteger(targetWords) || targetWords < 100 || targetWords > 700 || !validString(model,160)) throw invalidInput();
+  const selected=prepareExplanationSources(sources,mode);
+  if (mode==='book' && !selected.length) throw new ExplanationError('no-sources','Select matching book passages before requesting an explanation.');
+  return {...parseExplanation(content,selected,mode,Math.floor(targetWords*1.5)),model};
+}
+
 function serviceError(status) {
   if (status === 401 || status === 403) return new ExplanationError('unauthorized', 'OpenRouter rejected this API key. Check or replace your key and try again.');
   if (status === 429) return new ExplanationError('rate-limit', 'OpenRouter’s free request quota is currently unavailable. Wait and retry, or check your account limits.');

@@ -21,5 +21,8 @@ test('actual PDF loading retains physical pages and permits disposal',async()=>{
   assert.ok(session.spans.every(span=>span.bookId===session.id&&span.id.startsWith(session.id+':')));
   assert.equal(session.pages[0].ref.printedLabel,'17');assert.deepEqual(progress,[1,2,3]);
   assert.ok(session.spans.some(s=>s.text.includes('genuine source paragraph')));
+  const image=await session.renderPage(1,1);
+  assert.ok(image.width>0&&image.height>0);
+  assert.ok(image.getContext('2d').getImageData(45,125,360,35).data.some((value,i)=>i%4!==3&&value<200),'rendered source text has visible pixels');
   await session.dispose();assert.equal(session.pages.length,0);
 });

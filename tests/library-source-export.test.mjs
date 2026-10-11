@@ -16,7 +16,7 @@ const books=()=>[book('red','Red handbook.pdf','#ff0000'),book('blue','Blue hand
 const passage=(session,text='The vibration apparatus is shown in Fig. 2.3.')=>({id:`${session.id}:p1`,bookId:session.id,text,heading:'Vibration',segments:[{page:{...session.pages[0].ref},rects:[box]}]});
 const result=passages=>({question:{id:'q1',text:'Explain vibration.'},status:'matched',passages,figures:[],coverageNotes:[]});
 async function pixel(blob){const image=await loadImage(Buffer.from(await blob.arrayBuffer())),canvas=createCanvas(image.width,image.height);canvas.getContext('2d').drawImage(image,0,0);return [...canvas.getContext('2d').getImageData(2,2,1,1).data];}
-async function pdfText(blob){const pdf=await(await pdfLibrary()).getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:true}).promise;try{let text='';for(let n=1;n<=pdf.numPages;n++)text+=(await(await pdf.getPage(n)).getTextContent()).items.map(i=>i.str).join(' ')+' ';return text;}finally{await pdf.destroy();}}
+async function pdfText(blob){const loading=(await pdfLibrary()).getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:true}),pdf=await loading.promise;try{let text='';for(let n=1;n<=pdf.numPages;n++)text+=(await(await pdf.getPage(n)).getTextContent()).items.map(i=>i.str).join(' ')+' ';return text;}finally{await loading.destroy();}}
 
 // Selecting physical page 1 from a second book must not render the first book.
 test('passage and figure crops route identical page numbers to their own book pixels',async()=>{
@@ -93,10 +93,10 @@ test('exported citations distinguish separate books that share a filename and pa
 test('a tall confirmed table uses a readable page-sized image without crossing page margins',async()=>{
   const source=book('table','Table handbook.pdf','#fff');source.renderPage=async()=>{const canvas=createCanvas(600,1200),ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,600,1200);ctx.fillStyle='#000';for(let n=0;n<30;n++){ctx.fillText(`Row ${n+1}: measured value`,25,35+n*38);ctx.fillRect(20,42+n*38,560,1);}return canvas;};
   const r=result([]);r.figures=[{bookId:'table',page:source.pages[0].ref,bounds:{x:0,y:0,width:1,height:1},caption:'Table 12.27. Complete trial values and notes',confirmed:true}];
-  const blob=await exportPacket({books:[source]},[r]),lib=await pdfLibrary(),pdf=await lib.getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:true}).promise;
+  const blob=await exportPacket({books:[source]},[r]),lib=await pdfLibrary(),loading=lib.getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:true}),pdf=await loading.promise;
   const images=[];try{for(let n=1;n<=pdf.numPages;n++){const page=await pdf.getPage(n),ops=await page.getOperatorList(),stack=[];let matrix=[1,0,0,1,0,0];
     for(let i=0;i<ops.fnArray.length;i++){const fn=ops.fnArray[i],args=ops.argsArray[i];if(fn===lib.OPS.save)stack.push([...matrix]);else if(fn===lib.OPS.restore)matrix=stack.pop();else if(fn===lib.OPS.transform){const [a,b,c,d,e,f]=matrix,[g,h,j,k,l,m]=args;matrix=[a*g+c*h,b*g+d*h,a*j+c*k,b*j+d*k,a*l+c*m+e,b*l+d*m+f];}else if(fn===lib.OPS.paintImageXObject)images.push({x:matrix[4],y:matrix[5],width:Math.hypot(matrix[0],matrix[1]),height:Math.hypot(matrix[2],matrix[3]),pageWidth:page.view[2],pageHeight:page.view[3]});}
-  }}finally{await pdf.destroy();}
+  }}finally{await loading.destroy();}
   assert.equal(images.length,1);const image=images[0];assert.ok(image.height>400,'Long table rows must remain readable in the exported PDF');assert.ok(image.x>=40&&image.y>=40);assert.ok(image.x+image.width<=image.pageWidth-39);assert.ok(image.y+image.height<=image.pageHeight-40);
 });
 

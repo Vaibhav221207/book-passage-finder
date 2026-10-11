@@ -59,7 +59,7 @@ export function buildIndex(spans){
   }
   return {docs,df,headingTerms,references,average:docs.reduce((s,d)=>s+d.length,0)/Math.max(docs.length,1)};
 }
-function sentenceWindows(text){
+export function sentenceWindows(text){
   const parts=[];let start=0;
   const add=end=>{const raw=text.slice(start,end),trim=raw.trim();if(trim)parts.push({text:trim,start:start+raw.indexOf(trim),end:start+raw.indexOf(trim)+trim.length});start=end;};
   for(let i=0;i<text.length;i++){
@@ -154,7 +154,13 @@ export function searchQuestion(index,question,{wordBudget=200}={}){
   const result={question,passages:[],figures:[],status:'no-match',coverageNotes:[]};
   if(!core.length){result.coverageNotes.push('Add the textbook topic to this question.');return result;}
   const known=core.filter(t=>index.df.has(t)),unknown=core.filter(t=>!index.df.has(t));
-  if(!known.length||unknown.includes(core[0])||unknown.some(t=>/^\d{4}$/.test(t))||(unknown.length&&/\b(only|without|approved)\b/i.test(question.text))||(unknown.length>=known.length&&known.length<=1)){result.coverageNotes.push('No reliable passage found for this topic or requested edition.');return result;}
+  // Context words cannot rescue an absent leading compound subject. Later
+  // requested parts remain eligible for the existing partial-coverage path.
+  const firstSubjectWord=[...question.text.matchAll(/[a-z][a-z0-9]+|\d{3,4}/gi)].find(match=>meaningful(match[0]).length);
+  const subject=firstSubjectWord?question.text.slice(firstSubjectWord.index).match(/^([^,;:?!]*?)\b(?:in|on|of|for|with|from|to|using|according|per|as)\b/i)?.[1]:null;
+  const leadingSubject=subject?meaningful(subject.split(/\b(?:and|or|then|also|including)\b/i)[0]).slice(0,2):[];
+  const absentCompound=leadingSubject.length===2&&leadingSubject.some(term=>!index.df.has(term));
+  if(!known.length||unknown.includes(core[0])||absentCompound||unknown.some(t=>/^\d{4}$/.test(t))||(unknown.length&&/\b(only|without|approved)\b/i.test(question.text))||(unknown.length>=known.length&&known.length<=1)){result.coverageNotes.push('No reliable passage found for this topic or requested edition.');return result;}
   const N=index.docs.length,idf=t=>Math.log(1+(N-(index.df.get(t)||0)+.5)/((index.df.get(t)||0)+.5));
   const query=new Set(known),pairs=core.slice(0,-1).map((t,i)=>[t,core[i+1]]);const score=doc=>known.reduce((s,t,i)=>{
     const f=doc.tf.get(t)||0;return s+idf(t)*(i<2?1.4:1)*(f*2.2/(f+1.2*(.25+.75*doc.length/index.average))+(doc.heading.has(t)?1.7:0));
