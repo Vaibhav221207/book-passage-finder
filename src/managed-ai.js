@@ -30,14 +30,14 @@ export async function requestManagedExplanation({endpoint,question,sources=[],ta
   if(typeof text!=='string'||!text.trim()||text.length>1600||![200,300,450].includes(targetWords)||!validId(clientId)||typeof fetchImpl!=='function'||!Number.isFinite(timeoutMs)||timeoutMs<1||timeoutMs>120000)throw failure('invalid-input','Check the question and answer length before trying AI again.');
   const selected=prepareExplanationSources(sources,mode);
   if(mode==='book'&&!selected.length)throw failure('no-sources','Select matching passages first, or choose a general explanation.');
-  if(selected.length>12||selected.reduce((n,s)=>n+s.text.length,0)>12000)throw failure('invalid-input','The selected passages are too long for shared AI. Keep the most relevant passages; your book answer is kept.');
+  if(selected.length>12||selected.reduce((n,s)=>n+s.text.length+(s.heading?.length||0),0)>12000)throw failure('invalid-input','The selected passages are too long for shared AI. Keep the most relevant passages; your book answer is kept.');
   const controller=new AbortController();let timedOut=false;
   const abort=()=>controller.abort();signal?.addEventListener('abort',abort,{once:true});
   const aborted=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(timedOut?failure('timeout','AI took too long. Your book answer is still available.'):cancelled()),{once:true}));
   const timer=setTimeout(()=>{timedOut=true;controller.abort();},timeoutMs);
   try {
     const operation=(async()=>{
-      const response=await fetchImpl(url,{method:'POST',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text.trim(),targetWords,mode,clientId,sources:selected.map(({id,text})=>({id,text}))})});
+      const response=await fetchImpl(url,{method:'POST',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({question:text.trim(),targetWords,mode,clientId,sources:selected.map(({id,text,heading})=>({id,text,...(heading!=null?{heading}:{})}))})});
       if(!response.ok)throw serviceError(response.status);
       const raw=await response.text();if(raw.length>40000)throw failure('invalid-answer','AI returned an invalid response. Your book answer is kept.');
       let data;try{data=JSON.parse(raw);}catch{throw failure('invalid-answer','AI returned an invalid response. Your book answer is kept.');}

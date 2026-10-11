@@ -68,6 +68,22 @@ test('JSON-mode direct objects and complete chat-completion envelopes retain the
   }
 });
 
+test('an evidence-valid verbose completion is shortened using complete sentences across topics without another request',async()=>{
+  const sections=Array.from({length:5},(_,i)=>({heading:`Topic ${i+1}`,sourceIds:['S1'],text:Array.from({length:12},(_,j)=>`This complete supported sentence explains material property ${i+1} and consideration ${j+1}.`).join(' ')}));
+  let calls=0;const f=fixture({AI:{run:async()=>{calls++;return {response:JSON.stringify(answer({sections}))};}}});
+  try {const result=await worker.fetch(request(),f.env);assert.equal(result.status,200);const content=JSON.parse((await result.json()).content);assert.equal(calls,1);assert.equal(content.sections.length,5);assert.ok(content.sections.reduce((sum,s)=>sum+s.text.split(/\s+/).length,0)<=300);for(const section of content.sections){assert.ok(section.text.endsWith('.'));assert.deepEqual(section.sourceIds,['S1']);assert.ok(sections.find(s=>s.heading===section.heading).text.includes(section.text));}}finally{f.close();}
+  const invalid=structuredClone(sections);invalid.at(-1).sourceIds=['S999'];const bad=fixture({AI:{run:async()=>({response:JSON.stringify(answer({sections:invalid}))})}});try{assert.equal((await worker.fetch(request(),bad.env)).status,503);}finally{bad.close();}
+});
+
+test('shortening preserves short precautions and never splices a source quotation',async()=>{
+  const text='Never vibrate. '+Array.from({length:21},()=> 'This complete sentence explains the procedure using ten relevant words.').join(' ');
+  const f=fixture({AI:{run:async()=>({response:answer({sections:[{heading:'Procedure',text,sourceIds:['S1']}]})})}});
+  try{const result=await worker.fetch(request(body({targetWords:200,sources:[{id:'S1',text}]})),f.env);assert.equal(result.status,200);const section=JSON.parse((await result.json()).content).sections[0];assert.ok(section.text.startsWith('Never vibrate.'));assert.ok(text.startsWith(section.text));assert.ok(section.text.split(/\s+/).length<=200);}finally{f.close();}
+  const quote='"The first statement describes a relevant material property. '+Array.from({length:201},()=> 'material').join(' ')+'. The final statement explains the conclusion of this quotation."';
+  const quoted=fixture({AI:{run:async()=>({response:answer({sections:[{heading:'Source quotation',text:quote,sourceIds:['S1']}]})})}});
+  try{const result=await worker.fetch(request(body({targetWords:200,sources:[{id:'S1',text:quote}]})),quoted.env);assert.equal(result.status,503);}finally{quoted.close();}
+});
+
 test('disallowed origins, methods, paths and preflight headers cannot consume the AI allowance', async () => {
   const f = fixture();
   try {
@@ -112,6 +128,11 @@ test('invalid and excessive input is rejected before reservations or inference',
     assert.equal(f.calls.length, 0);
     assert.equal(f.db.prepare('SELECT COUNT(*) AS n FROM counters').get().n, 0);
   } finally {f.close();}
+});
+
+test('source headings preserve method context and stay inside the validated input bound',async()=>{
+  const sources=[{...body().sources[0],heading:'Flow Test'}];
+  const f=fixture();try{const result=await worker.fetch(request(body({sources})),f.env);assert.equal(result.status,200);assert.deepEqual(JSON.parse(f.calls[0].input.messages[1].content).sources,sources);assert.equal((await worker.fetch(request(body({sources:[{...sources[0],heading:'x'.repeat(161)}]})),f.env)).status,400);}finally{f.close();}
 });
 
 test('general explanations send no textbook text and cannot return false textbook citations', async () => {

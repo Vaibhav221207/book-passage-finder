@@ -26,7 +26,8 @@ export function buildAnswerSources(result) {
       bookId: pages[0]?.bookId || passage.bookId || '',
       bookName: pages[0]?.bookName || passage.bookName || '',
       pages,
-      text: passage.text
+      text: passage.text,
+      ...(validString(passage.heading,160)?{heading:passage.heading.trim()}:{})
     };
   });
 }
@@ -52,7 +53,8 @@ function copySources(sources) {
       return ref;
     });
     for (const key of ['bookId', 'bookName']) if (source[key] != null && (typeof source[key] !== 'string' || source[key].length > 512)) throw invalidInput();
-    return {id: source.id, bookId: source.bookId || '', bookName: source.bookName || '', pages, text: source.text};
+    if(source.heading!=null&&!validString(source.heading,160))throw invalidInput();
+    return {id: source.id, bookId: source.bookId || '', bookName: source.bookName || '', pages, text: source.text,...(source.heading!=null?{heading:source.heading}:{})};
   });
 }
 

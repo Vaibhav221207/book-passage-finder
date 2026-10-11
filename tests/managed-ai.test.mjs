@@ -15,6 +15,12 @@ test('managed AI sends one keyless request containing only question and selected
   assert.deepEqual(result.sources,[source]);assert.equal(result.allowance.remaining,7);assert.equal(result.mode,'book');assert.deepEqual(result.sections,draft().sections);
 });
 
+test('section headings reach managed AI without sending book or page metadata',async()=>{
+  let supplied;const heading='Flow Test';
+  await request(options({sources:[{...source,heading}],fetchImpl:async(_,init)=>{supplied=JSON.parse(init.body);return response(draft());}}));
+  assert.deepEqual(supplied.sources,[{id:'S1',text:source.text,heading}]);
+});
+
 test('an unconfigured or unsafe endpoint fails before network access',async()=>{
   for(const endpoint of ['', 'http://outside.example','https://name:secret@example.com','https://example.com/?secret=value','https://example.com/unexpected']){
     let calls=0;await assert.rejects(request(options({endpoint,fetchImpl:async()=>{calls++;}})));assert.equal(calls,0);

@@ -1,6 +1,15 @@
 # Verification record
 
-## Student workspace and managed-answer release — 11 October 2026
+## Live managed-AI activation — 11 October 2026
+
+- The owner signed into Cloudflare and confirmed Workers Free. The fixed GLM-4.7-Flash model is explicitly listed as Free-eligible by Cloudflare. Worker version `f43e4435-e14d-4bb5-ace1-66d949d17b8d` deployed successfully with the existing 100 global / eight browser / 100 shared-IP daily ceilings, no paid fallback and no automatic retry. The frontend endpoint is configured only after successful live requests.
+- Live book/general requests passed using the supplied book's selected passages and a separate general question. Final section-text counts were 172 and 200 words. The book example distinguishes Flow and Vee-Bee methods, includes supporting IDs and reports missing IS/ASTM details. General output has no book citations. Origin preflight returns 204 for the actual site and 403 for an outside origin; successful requests reduce remaining allowance by one. These finite checks do not prove factual accuracy, complete coverage or future availability. Earlier model samples showed semantic errors even with valid JSON/citation IDs; extracted headings reduce missing context, while source review remains necessary.
+- Review reproduced two shortening defects: omitted short precautions and spliced quotations. The repaired algorithm retains contiguous complete-sentence prefixes, keeps quoted sections atomic and revalidates transformed content. The new regression failed before its fix, then passed; independent recheck found no remaining concrete issue in these repairs.
+- Fresh full suite: 196/196 tests pass. Build, syntax and distribution checks pass: 259 assets / 52.3 MB. Private books, assignments, downloads and credentials are excluded.
+- Production browser checks load the actual 647-page textbook and a supplementary PDF together. Book answers, source links, no-match behavior and question navigation work. Answer text is 18 px. At 390 × 844, content width and scroll width are both 375 px; the correct supplementary source opens inside the viewport.
+- Table 12.27 was downloaded from the production browser and visually inspected with its caption, numbers, all columns/rows and notes intact. The seven-page browser export retains all four questions, both book references and the confirmed table; its final page was rendered and checked. The earlier Node-only table glyph issue does not reproduce in the browser crop or exported raster.
+
+## Student workspace and managed-answer preparation — 11 October 2026
 
 - Fresh automated suite: 192/192 tests pass. The answer compiler preserves exact source sentences, independent book identities and the 200/300/450 word budgets. The managed client and Worker cover source validation, safe errors, cancellation, no automatic retries, atomic daily caps and supported response envelopes.
 - The supplied 647-page PDF and 11-page assignment were loaded again using PDF.js 6.4.299. Import retains 99 questions. Three-question verification returns book drafts of 283 and 90 words and no draft for the unsupported compound topic. A four-page PDF export retains the question set, source mappings and confirmed table selection.
