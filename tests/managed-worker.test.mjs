@@ -130,6 +130,18 @@ test('invalid and excessive input is rejected before reservations or inference',
   } finally {f.close();}
 });
 
+test('exact quotations require support from a section citation before and after shortening',async()=>{
+  const quote='The flow test measures the spread of concrete after jolting.';
+  const sources=[...body().sources,{id:'S2',text:quote}];
+  for(const field of ['heading','text']){
+    const draft=answer();draft.sections[0][field]=`The book describes: “${quote}”`;
+    const f=fixture({AI:{run:async()=>({response:draft})}});
+    try{assert.equal((await worker.fetch(request(body({sources})),f.env)).status,503);draft.sections[0].sourceIds=['S1','S2'];assert.equal((await worker.fetch(request(body({sources})),f.env)).status,200);}finally{f.close();}
+  }
+  const verbose=answer({sections:[{heading:'Materials',text:'This source supports a brief explanation of material use.',sourceIds:['S1']},{heading:'Flow',text:`“${quote}” `+Array.from({length:40},()=> 'This complete sentence describes a procedure in the textbook.').join(' '),sourceIds:['S1']}]});
+  const f=fixture({AI:{run:async()=>({response:verbose})}});try{assert.equal((await worker.fetch(request(body({sources,targetWords:200})),f.env)).status,503);}finally{f.close();}
+});
+
 test('source headings preserve method context and stay inside the validated input bound',async()=>{
   const sources=[{...body().sources[0],heading:'Flow Test'}];
   const f=fixture();try{const result=await worker.fetch(request(body({sources})),f.env);assert.equal(result.status,200);assert.deepEqual(JSON.parse(f.calls[0].input.messages[1].content).sources,sources);assert.equal((await worker.fetch(request(body({sources:[{...sources[0],heading:'x'.repeat(161)}]})),f.env)).status,400);}finally{f.close();}

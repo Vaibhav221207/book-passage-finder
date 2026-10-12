@@ -34,7 +34,7 @@ export async function exportPacket(context,results,{signal,onProgress=()=>{},inc
     if(!draft)return;const general=draft.mode==='general',extractive=draft.mode==='extractive',sources=new Map();
     if(!general)for(const source of draft.sources||[])sources.set(source.id,{...source,pages:(source.pages||[]).map(ref=>reference(ref,source.bookId))});
     write(extractive?'Answer from your books — Organized textbook sentences':general?'General knowledge (unverified) — generated draft':'Generated explanation draft — verify against the book sources',11,5);
-    if(draft.model)write(`Model: ${draft.model}`,8,5);if(draft.title)write(draft.title,12,6);
+    if(draft.title)write(draft.title,12,6);
     for(const section of draft.sections||[]){const ids=general?[]:(section.sourceIds||[]).filter(id=>sources.has(id));if(section.heading||ids.length)write(`${section.heading||'Explanation'}${ids.length?` [${ids.join(', ')}]`:''}`,10,4);write(section.text,10,8);}
     if(draft.missingDetails?.length){write('Missing details to check',10,4);for(const detail of draft.missingDetails)write(detail,9,5);}
     if(sources.size){write(extractive?'Textbook answer source mappings':'Generated draft source mappings',9,4);for(const source of sources.values())write(`${source.id} · ${source.pages.map(pageName).join(' / ')||source.bookName||'Source page unavailable'}`,8,5);}
@@ -42,11 +42,11 @@ export async function exportPacket(context,results,{signal,onProgress=()=>{},inc
   }
   write('Book Passage Finder',18,6);for(const source of sources)write(sourceNames.get(source.id)||'Selected textbook',9,5);y-=5;
   for(const [i,result]of results.entries()){
-    abortIfNeeded(signal);onProgress({phase:'Building PDF',completed:i,total:results.length});write(`Q${i+1}. ${result.question.text}`,12,8);
+    abortIfNeeded(signal);onProgress({phase:'Building PDF',completed:i,total:results.length});if(i>0)newPage();write(`Q${i+1}. ${result.question.text}`,12,8);
+    explanation(result.explanation||result.bookAnswer);
     write(result.status==='no-match'?'No reliable match in the loaded books.':result.status==='partial'?'Partial matches — check the remaining details in the books.':'Selected source passages',9,8);
     for(const passage of result.passages||[]){write(passage.text);write(passage.segments.map(s=>pageName(reference(s.page,passage.bookId))).join(' / '),8,10);}
     for(const note of result.coverageNotes||[])write(note,8,5);
-    explanation(result.explanation||result.bookAnswer);
     if(includeCrops&&result.passages?.length){write('Original passage crops',11,8);for(const passage of result.passages)for(const crop of await cropSpan(context,passage,{scale:2,signal})){await image(crop.blob,pageName(reference(crop.page,passage.bookId)));await tick();}}
     for(const figure of result.figures||[])if(figure.confirmed)await image(await cropFigure(context,figure,{signal}),`${figure.caption} · ${pageName(reference(figure.page,figure.bookId))}`);
     y-=10;await tick();

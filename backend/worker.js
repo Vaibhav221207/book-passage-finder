@@ -105,7 +105,7 @@ function validateOutput(value, input) {
     || !Array.isArray(parsed.missingDetails) || parsed.missingDetails.length > 12
     || parsed.missingDetails.some(detail => !validText(detail, 1000))) throw unavailable();
   const ids = new Set(input.sources.map(source => source.id));
-  const prose = [parsed.title, ...parsed.missingDetails];
+  const prose = [parsed.title, ...parsed.missingDetails].map(text=>({text,sources:input.sources}));
   let wordCount = 0;
   for (const section of parsed.sections) {
     if (!exactKeys(section, ['heading', 'text', 'sourceIds']) || !validText(section.heading, 160) || !validText(section.text, 8000)
@@ -113,15 +113,16 @@ function validateOutput(value, input) {
       || new Set(section.sourceIds).size !== section.sourceIds.length
       || section.sourceIds.some(id => typeof id !== 'string' || !ids.has(id))
       || (input.mode === 'book' && !section.sourceIds.length) || (input.mode === 'general' && section.sourceIds.length)) throw unavailable();
-    prose.push(section.heading, section.text);
+    const citedSources=input.sources.filter(source=>section.sourceIds.includes(source.id));
+    prose.push({text:section.heading,sources:citedSources},{text:section.text,sources:citedSources});
     wordCount += section.text.trim().split(/\s+/).length;
   }
   if (wordCount > Math.max(1000,input.targetWords*3)) throw unavailable();
-  for (const text of prose) {
+  for (const {text,sources} of prose) {
     if (/\bS[1-9]\d*\b|\bpages?\s+(?:\d+|[ivxlcdm]+\b)|\bp{1,2}\.\s*(?:\d+|[ivxlcdm]+\b)/i.test(text)) throw unavailable();
     if (input.mode === 'general' && /\b(?:according to (?:the |this )?(?:book|textbook|selected passage|uploaded source)|(?:the |this )?(?:book|textbook|selected passage|uploaded source)\s+(?:states?|says?|defines?|describes?|explains?|reports?|shows?))\b/i.test(text)) throw unavailable();
     if (input.mode === 'book') for (const match of text.matchAll(/"([^"\n]{24,})"|“([^”\n]{24,})”/g)) {
-      if (!input.sources.some(source => source.text.includes(match[1] || match[2]))) throw unavailable();
+      if (!sources.some(source => source.text.includes(match[1] || match[2]))) throw unavailable();
     }
   }
   if(wordCount>input.targetWords){

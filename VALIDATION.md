@@ -1,5 +1,14 @@
 # Verification record
 
+## Answer-first export and quotation citations — 12 October 2026
+
+- The PDF previously printed raw passages before the study answer and could start the next question halfway down a page. It now prints the chosen book/AI answer first, retains supporting evidence afterward, and starts later questions on new pages. Raw provider IDs are omitted from the student PDF while book/general verification labels and source mappings remain.
+- Real PDF-extraction regressions cover answer-first ordering for extractive, source-backed AI and general drafts, fresh-page question starts, retained evidence, empty/no-match questions and provider-ID omission. Existing crop, confirmed-figure, hidden-question, duplicate-book and current-page-reference checks continue to pass.
+- The client and Worker previously accepted a quotation found in an uncited selected passage. New regressions reproduced this as an incorrect acceptance. Both now check section heading/text quotations against the section's cited passages; mismatched verbose output is rejected before shortening. Correct multi-source citations continue to pass. Independent review found no new issue in the scoped fix. This checks exact quotations, not semantic support for paraphrased claims.
+- Fresh full suite: 204/204 tests pass. Syntax, build and distribution checks pass: 259 assets / 52.3 MB. The Worker quotation fix deployed as version `82cd6e35-8cb8-44f8-9ec6-d57c346a620f`, with the existing model, daily caps and no paid fallback unchanged.
+- The original 647-page book and 11-page assignment still produce 99 imported questions and draft lengths of 283, 90 and zero words for the three private test topics. The new six-page export retains these questions, book references and confirmed table. A separate four-page synthetic packet was rendered and inspected: answer-first order, fresh question pages, passage crops and table all remain readable. Independent export review found no actionable issue.
+- The first live inference attempt returned a safe 503 response. One explicit follow-up completed both book and general requests at 190 and 173 section-text words, with the same test identity's remaining allowance reduced to five. Site preflight and outside-origin rejection passed. The app itself does not retry automatically; finite successes do not establish continuous availability or semantic accuracy.
+
 ## Live managed-AI activation — 11 October 2026
 
 - The owner signed into Cloudflare and confirmed Workers Free. The fixed GLM-4.7-Flash model is explicitly listed as Free-eligible by Cloudflare. Worker version `f43e4435-e14d-4bb5-ace1-66d949d17b8d` deployed successfully with the existing 100 global / eight browser / 100 shared-IP daily ceilings, no paid fallback and no automatic retry. The frontend endpoint is configured only after successful live requests.

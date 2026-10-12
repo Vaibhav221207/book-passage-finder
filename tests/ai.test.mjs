@@ -73,6 +73,18 @@ test('prose cannot smuggle fabricated source IDs, page citations, or book quotat
   }
 });
 
+test('a quotation must occur in a section citation, not merely in another selected source',async()=>{
+  const quote='The flow test measures the spread of concrete after jolting.';
+  const sources=[source,{...source,id:'S2',pages:[{pdfPage:8,printedLabel:'6'}],text:quote}];
+  for(const field of ['heading','text']){
+    const draft={...answer(),sections:[{...answer().sections[0],[field]:`The book describes: “${quote}”`}]};
+    await assert.rejects(requireApi('requestExplanation')(options({sources,fetchImpl:success(envelope(JSON.stringify(draft)))})),error=>error.code==='invalid-answer');
+    draft.sections[0].sourceIds=['S1','S2'];
+    const valid=await requireApi('requestExplanation')(options({sources,fetchImpl:success(envelope(JSON.stringify(draft)))}));
+    assert.deepEqual(valid.sections[0].sourceIds,['S1','S2']);
+  }
+});
+
 test('general draft rejects invented textbook citations in prose',async () => {
   const request=requireApi('requestExplanation');
   const content={...answer(),sections:[{heading:'Definition',text:'According to textbook page 88, slump is zero.',sourceIds:[]}]};

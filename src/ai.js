@@ -105,8 +105,9 @@ function parseExplanation(content, sources, mode, maxWords) {
       || section.sourceIds.some(id => typeof id !== 'string' || !allowedIds.has(id))
       || (mode === 'book' && !section.sourceIds.length)
       || (mode === 'general' && section.sourceIds.length)) throw invalidAnswer();
-    checkProse(section.heading, sources, mode);
-    checkProse(section.text, sources, mode);
+    const citedSources=sources.filter(source=>section.sourceIds.includes(source.id));
+    checkProse(section.heading, citedSources, mode);
+    checkProse(section.text, citedSources, mode);
     return {heading: section.heading.trim(), text: section.text.trim(), sourceIds: [...section.sourceIds]};
   });
   const totalWords = sections.reduce((total, section) => total + section.text.split(/\s+/).length, 0);
