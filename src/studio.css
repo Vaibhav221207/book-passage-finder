@@ -52,6 +52,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .input-panel button:focus-visible,.input-panel a:focus-visible,.input-panel input:focus-visible,.input-panel textarea:focus-visible,.input-panel select:focus-visible,.input-panel summary:focus-visible{outline-color:#d6ef93}
 .book-name{font-size:15px}.book-meta{font-size:12px}.book-picker #book-detail{font-size:13px}.question-tab-copy{font-size:12px}.question-tab-status{font-size:10px}
 .book-tile{grid-template-columns:minmax(0,1fr) 44px}.book-remove{min-width:44px}.input-panel summary{min-height:44px;display:flex;align-items:center;gap:7px}.input-panel summary::before{content:'+';font-size:17px;color:#d6ef93}.input-panel details[open]>summary::before{content:'−'}
+body.focus-mode .desk-question-list,body.focus-mode .queue-heading,body.focus-mode #export-help{display:none}
+body.focus-mode .question-navigation{padding-bottom:14px;margin-bottom:18px}body.focus-mode .question-navigation-bottom{margin-top:0}
 .empty-results .empty-foot{font-size:11px;line-height:1.65}.empty-foot .small-rule{padding:0;border-radius:0;background:#8d9d71}
 dialog::backdrop{background:#1c2416a8}.source-stage{background:#e7ebdc}.selection-box{background:#b2ce611a}
 @media(max-width:780px){.input-panel input,.input-panel select,.input-panel textarea,.question-selector select,dialog input,dialog select{font-size:16px}}
