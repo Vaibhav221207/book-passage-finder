@@ -8,6 +8,7 @@ button,input,select,textarea{font-family:inherit}
 button{border-radius:5px;min-height:44px}
 a{color:inherit}
 :focus-visible{outline:2px solid #34432b;outline-offset:4px}
+.topbar a:focus-visible{outline-color:#d6ef93}
 .topbar{width:100%;max-width:none;margin:0;padding:22px max(24px,calc((100vw - 1510px)/2));background:#252b22;color:#f2f4e9;border-bottom:1px solid #454d3e;min-height:88px}
 .brand{gap:14px;font-size:22px;line-height:1.15;letter-spacing:-.7px;font-weight:650}
 .brand-subtitle{display:block;margin-top:7px;font-family:Desk Text,sans-serif;font-size:10px;letter-spacing:2.2px;font-weight:400;color:#b9c6a5}

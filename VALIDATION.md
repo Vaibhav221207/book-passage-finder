@@ -1,5 +1,16 @@
 # Verification record
 
+## Studio desk redesign — 13 October 2026
+
+- The user chose a Studio desk direction. The workspace now has a charcoal bookshelf and masthead, lime actions and question bookmarks, and a paper notebook reading surface. Display typography uses the self-hosted, OFL-licensed Space Grotesk font; answer text remains 18 px. Source screenshots, multiple books, AI controls and PDF exports retain their existing workflows.
+- Added PDF drop filtering, actionable empty-state controls, keyboard navigation through question bookmarks, and a Focus view that hides the materials panel and wide question index while retaining the picker, Previous/Next and Back to desk. Escape restores the desk when no dialog is open; starting work releases focus so progress and cancellation remain reachable.
+- The two new navigation/drop regressions were observed failing before implementation. The full automated suite passes 206/206. JavaScript syntax and CSS parser checks pass. Clean build and distribution verification pass with 263 assets / 52.4 MB; private books, assignments and credentials are excluded.
+- Production browser checks loaded the actual 647-page textbook and a supplementary PDF, imported all 99 questions from the original assignment, and verified Home/End bookmark navigation, stable shelf keyboard focus, original source links and focus-mode recovery. Desktop content and scroll widths are both 1265 px. At a 390 × 844 viewport, both widths are 375 px; answer text is 18 px and form fields are 16 px. These are browser viewport checks, not physical-phone performance measurements.
+- A final mobile source review opens the correct supplementary page; the source dialog fits within the viewport and its outer scroll height equals its visible height. Independent review found inherited color/focus issues and lost shelf focus; these were corrected. The final header-link outline uses lime against charcoal. A returning browser retained the previous stylesheet after reload, so the new stylesheet URL includes a release version to refresh it reliably.
+- Focused reading takes inspiration from Readwise Reader navigation (https://docs.readwise.io/reader/docs/faqs/navigation), and recognizable source objects from Are.na blocks (https://help.are.na/docs/getting-started/blocks). These informed our own interface rather than reproducing either product.
+
+The AI service and inference model were not changed or called during this redesign. Retrieval and semantic accuracy limits documented below remain. Final release publication/browser follow-up is recorded in the output validation report.
+
 ## Answer-first export and quotation citations — 12 October 2026
 
 - The PDF previously printed raw passages before the study answer and could start the next question halfway down a page. It now prints the chosen book/AI answer first, retains supporting evidence afterward, and starts later questions on new pages. Raw provider IDs are omitted from the student PDF while book/general verification labels and source mappings remain.
