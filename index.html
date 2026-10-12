@@ -4,37 +4,26 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Find answers, original diagrams and page references in your own textbook PDFs. Book search runs on your device.">
-  <title>Book Passage Finder</title>
+  <meta name="theme-color" content="#22251f">
+  <title>Book Passage Finder — Your study desk</title>
   <link rel="stylesheet" href="./src/styles.css">
+  <link rel="stylesheet" href="./src/studio.css">
 </head>
 <body>
   <a class="skip-link" href="#workspace">Skip to workspace</a>
   <header class="topbar">
-    <a class="brand" href="./" aria-label="Book Passage Finder home"><span class="brand-mark" aria-hidden="true">b.</span><span>Book Passage Finder</span></a>
-    <span class="local-tag"><span class="dot" aria-hidden="true"></span>Book search stays on your device</span>
+    <a class="brand" href="./" aria-label="Book Passage Finder home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Book Passage Finder<span class="brand-subtitle">THE STUDY STUDIO</span></span></a>
+    <div class="topbar-note"><span class="desk-edition">A place to connect the pages.</span><span class="local-tag"><span class="dot" aria-hidden="true"></span>Book search stays on your device</span></div>
   </header>
   <main id="workspace">
-    <div class="intro">
-      <div><p class="eyebrow">YOUR STUDY WORKSPACE</p><h1>Less searching. More understanding.</h1><p class="intro-copy">Bring your books and assignment. Keep every answer connected to its source.</p></div>
-      <ol class="workflow" aria-label="How to use this workspace"><li><span>1</span>Books</li><li><span>2</span>Questions</li><li><span>3</span>Answers</li></ol>
-    </div>
     <div class="workspace-grid">
       <section class="input-panel" aria-label="Books and assignment">
-        <div class="step-label"><span aria-hidden="true">1</span><h2>Add your books</h2></div>
-        <p class="section-help">Your textbooks are the starting point.</p>
-        <label class="book-picker" for="book-file">
-          <span class="file-symbol" aria-hidden="true">PDF</span>
-          <strong id="book-title">Add your textbooks</strong>
-          <span id="book-detail">Choose one or more PDFs from your device</span>
-          <span class="choose-label">Choose PDF books <span aria-hidden="true">+</span></span>
-          <input id="book-file" type="file" accept="application/pdf,.pdf" multiple>
-        </label>
-        <div id="library" class="library" hidden>
-          <div id="library-books"></div>
-          <p>Every open book is included in your search.</p>
-          <label for="active-book">Book for viewing and book tools</label>
-          <select id="active-book"></select>
+        <div class="desk-heading"><p class="eyebrow">YOUR MATERIALS</p><h1>The study desk<span aria-hidden="true">.</span></h1><p>A few books. A good question.<br>Everything you need to begin.</p></div>
+        <div class="step-label"><span aria-hidden="true">01</span><h2>The bookshelf</h2><span class="section-caption">PDF BOOKS</span></div>
+        <div id="book-dropzone" class="book-dropzone">
+          <label class="book-picker" for="book-file"><span class="file-symbol" aria-hidden="true">PDF<span>+</span></span><span class="picker-copy"><strong id="book-title">Add your textbooks</strong><span id="book-detail">Choose one or more PDFs from your device</span></span><span class="choose-label">Choose PDF books <span aria-hidden="true">↗</span></span><input id="book-file" type="file" accept="application/pdf,.pdf" multiple aria-describedby="book-detail"></label>
         </div>
+        <div id="library" class="library" hidden><div id="library-books" class="book-shelf"></div><p class="shelf-note">All open books are included in your search.</p><label for="active-book">Book for viewing and book tools</label><select id="active-book"></select></div>
         <details class="advanced-options" id="book-options">
           <summary>Book tools &amp; saved copies</summary>
           <div class="book-tools" id="book-tools" hidden><button id="save-book" class="text-button" type="button">Save on this device</button><button id="page-label" class="text-button" type="button">Correct page label</button></div>
@@ -42,45 +31,36 @@
           <details id="ocr-tools"><summary>Recognize a scanned PDF</summary><p id="ocr-description">OCR needs an English language download and can take longer on a phone.</p><label for="ocr-range">PDF pages to recognize</label><div class="inline-input"><input id="ocr-range" placeholder="e.g. 20-25" inputmode="text"><button id="run-ocr" type="button" class="secondary" disabled>Recognize</button></div><small>Use physical PDF page numbers. Start with a small range.</small></details>
         </details>
         <div class="panel-divider"></div>
-        <div class="step-label"><span aria-hidden="true">2</span><h2>Add your questions</h2></div>
-        <div class="question-input-heading"><label for="questions">Paste questions</label><span id="question-count">No questions yet</span></div>
-        <textarea id="questions" rows="6" placeholder="1. Explain…&#10;&#10;2. Discuss…"></textarea>
-        <label class="text-button import-label" for="assignment-file">Upload an assignment <span class="import-format">PDF or image</span><input id="assignment-file" type="file" accept="application/pdf,image/*,.pdf"></label>
-        <p class="input-help">Put each numbered question on a new line. You can edit the text after uploading.</p>
-        <div class="answer-settings">
-          <div class="length-setting"><label for="answer-length">Answer length</label><select id="answer-length"><option value="200">Short · about 200 words</option><option value="300" selected>Standard · about 300 words</option><option value="450">Detailed · about 450 words</option></select></div>
-        </div>
+        <div class="step-label"><span aria-hidden="true">02</span><h2>The assignment</h2></div>
+        <div class="question-input-heading"><label for="questions">Your questions</label><span id="question-count">No questions yet</span></div>
+        <textarea id="questions" rows="5" placeholder="1. Explain…&#10;&#10;2. Discuss…" aria-describedby="questions-help"></textarea>
+        <label class="text-button import-label" for="assignment-file"><span><span class="upload-symbol" aria-hidden="true">↑</span> Upload an assignment</span><span class="import-format">PDF / image</span><input id="assignment-file" type="file" accept="application/pdf,image/*,.pdf" aria-describedby="questions-help"></label>
+        <p id="questions-help" class="input-help">Number each question on a new line. Uploaded questions can be edited here.</p>
+        <div class="answer-settings"><div class="length-setting"><label for="answer-length">Answer length</label><select id="answer-length"><option value="200">Short · about 200 words</option><option value="300" selected>Standard · about 300 words</option><option value="450">Detailed · about 450 words</option></select></div></div>
         <div class="action-row"><button id="find" class="primary" type="button" disabled>Build my answers <span aria-hidden="true">→</span></button></div>
         <p id="ai-service-status" class="mode-note" role="status" aria-live="polite">Book answers are ready without setup. AI uses a shared daily allowance.</p>
         <div class="progress-area" id="progress-area" hidden><div><span id="progress-label">Reading book…</span><button id="cancel" class="text-button" type="button">Cancel</button></div><progress id="progress" max="100" value="0"></progress></div>
         <p id="message" class="message" role="status" aria-live="polite" hidden></p>
         <details id="ai-settings" class="ai-settings advanced-options">
-          <summary>Advanced AI settings</summary>
-          <p>Optionally connect your own OpenRouter key to use its free models. The key stays in memory in this tab. Generating an answer sends the question and selected passages to OpenRouter; the full PDF stays here.</p>
-          <a class="text-button" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Create an OpenRouter API key <span aria-hidden="true">↗</span></a>
-          <label for="ai-key">OpenRouter API key</label><input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key here">
-          <div class="ai-key-actions"><button id="connect-ai" class="secondary" type="button">Use this key</button><button id="disconnect-ai" class="text-button" type="button" hidden>Disconnect</button></div>
-          <p id="ai-connection" role="status">Optional. Book search works without a key.</p><small>Only free models are used. Free requests have limits and may be unavailable.</small>
+          <summary>Advanced AI settings</summary><p>Optionally connect your own OpenRouter key to use its free models. The key stays in memory in this tab. Generating an answer sends the question and selected passages to OpenRouter; the full PDF stays here.</p><a class="text-button" href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer">Create an OpenRouter API key <span aria-hidden="true">↗</span></a><label for="ai-key">OpenRouter API key</label><input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your key here"><div class="ai-key-actions"><button id="connect-ai" class="secondary" type="button">Use this key</button><button id="disconnect-ai" class="text-button" type="button" hidden>Disconnect</button></div><p id="ai-connection" role="status">Optional. Book search works without a key.</p><small>Only free models are used. Free requests have limits and may be unavailable.</small>
         </details>
+        <p class="desk-signoff">Keep the source close.</p>
       </section>
       <section class="results-panel" aria-labelledby="results-heading">
-        <div class="results-top"><div><p class="eyebrow">3 / REVIEW &amp; KEEP</p><h2 id="results-heading">Your answers</h2></div><button id="export" class="secondary" type="button" disabled>Download PDF <span aria-hidden="true">↓</span></button></div>
+        <div class="results-top"><div><p class="eyebrow">03 / READ · REVIEW · KEEP</p><h2 id="results-heading">The notebook<span aria-hidden="true">↘</span></h2></div><div class="results-toolbar"><button id="focus-toggle" class="secondary focus-toggle" type="button" aria-pressed="false"><svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m10-4v4h-4" stroke="currentColor" stroke-width="1.5"/></svg><span>Focus</span></button><button id="export" class="secondary export-button" type="button" disabled>Download PDF <span aria-hidden="true">↓</span></button></div></div>
         <div id="empty-results" class="empty-results">
-          <div class="paper-stack" aria-hidden="true"><div class="paper-back"></div><div class="paper-front"><span>FROM YOUR BOOK</span><i></i><i></i><i class="short-line"></i><div class="paper-highlight"></div><i></i><i class="short-line"></i><b>p.</b></div></div>
-          <h3>Your next answer starts here.</h3><p>Add a textbook and your questions.<br>We’ll find the relevant passages, with their original pages and diagrams.</p>
-          <div class="empty-foot"><span>Page references</span><span>Original screenshots</span><span>PDF download</span></div>
+          <div class="empty-desk" aria-hidden="true"><div class="desk-reference"><span class="reference-index">SOURCE / 01</span><div class="reference-lines"><i></i><i></i><i></i><i></i></div><div class="reference-diagram"><b></b><b></b><b></b></div><div class="reference-lines"><i></i><i></i><i></i></div><span class="reference-page">p. ___</span></div><div class="desk-note"><span class="note-tab">YOUR NOTES</span><span class="note-heading">A connection<br>starts here.</span><i></i><i></i><i></i><span class="note-citation">↖ Back to the source</span></div><span class="desk-pencil"></span></div>
+          <div class="empty-copy"><p class="eyebrow">A FRESH PAGE</p><h3>Good answers start<br>with your books.</h3><p>Bring a textbook and an assignment. Your answers will live here, with the pages and diagrams they came from.</p><div class="empty-actions"><button id="empty-add-book" class="primary" type="button">Add a book <span aria-hidden="true">+</span></button><button id="empty-add-questions" class="text-button" type="button">Add questions <span aria-hidden="true">↗</span></button></div></div>
+          <ol class="desk-onboarding" aria-label="How this workspace works"><li><span>01</span><div><strong>Open your books</strong><p>Use PDFs from your device.</p></div></li><li><span>02</span><div><strong>Bring your questions</strong><p>Paste or upload an assignment.</p></div></li><li><span>03</span><div><strong>Follow the source</strong><p>Read answers, check the original pages.</p></div></li></ol>
+          <p class="empty-foot"><span class="small-rule" aria-hidden="true"></span>Your books set the boundaries. Your sources stay in view.</p>
         </div>
-        <nav id="question-navigation" class="question-navigation" aria-label="Question results" hidden>
-          <div class="question-selector"><label for="question-select">Choose a question</label><select id="question-select"></select></div>
-          <div class="question-navigation-actions"><span id="question-position"></span><button id="question-previous" class="secondary" type="button">← Previous</button><button id="question-next" class="secondary" type="button">Next →</button></div>
-          <p id="export-help">Your PDF includes selected answers and figures from every question.</p>
-        </nav>
+        <nav id="question-navigation" class="question-navigation" aria-label="Question results" hidden><div class="queue-heading"><span class="eyebrow">QUESTION INDEX</span><span class="queue-note">One page at a time</span></div><div id="desk-question-list" class="desk-question-list" aria-label="Choose a question"></div><div class="question-navigation-bottom"><div class="question-selector"><label for="question-select">Choose a question</label><select id="question-select"></select></div><div class="question-navigation-actions"><span id="question-position"></span><button id="question-previous" class="secondary" type="button">← Previous</button><button id="question-next" class="secondary" type="button">Next →</button></div></div><p id="export-help">Your PDF includes selected answers and figures from every question.</p></nav>
         <div id="results" aria-live="polite"></div>
       </section>
     </div>
-    <footer><span>Your books. Your questions. Your sources.</span><p>Book search runs in your browser. Optional AI sends selected text to a cloud service. Page references match your uploaded edition.</p></footer>
+    <footer><span>Made for the way you study.</span><p>Book search runs in your browser. Optional AI sends selected text to a cloud service. Page references match your uploaded edition.</p></footer>
   </main>
-  <dialog id="source-dialog"><div class="dialog-head"><div><p class="eyebrow">ORIGINAL SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="crop-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div></dialog>
+  <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-head"><div><p class="eyebrow">ORIGINAL SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="crop-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div></dialog>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

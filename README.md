@@ -4,6 +4,8 @@ Add textbook PDFs, paste numbered assignment questions, and build study answers 
 
 App-managed AI is connected with a shared free daily allowance. Students need no API key, AI account or model download. Click **Improve with AI** after reviewing the selected passages, or **Try a general AI answer** when the books have no reliable match. The book answer remains available when generation fails. A personal OpenRouter key remains optional under **Advanced AI settings**.
 
+The **Studio desk** pairs a charcoal bookshelf with a paper reading surface and lime highlights. Click a book tile to select it for page viewing and book tools; all loaded books remain included in search. Drop PDF books on the upload area, use the question bookmarks to switch answers, or enable **Focus view** for reading. Bookmarks support Left/Right and Home/End keys. **Back to desk** or Escape restores the materials panel. Focus is released during a job so progress and Cancel stay available. The display and reading fonts are self-hosted, and reduced-motion preferences are respected.
+
 ## Run locally
 
 Install Node.js 22 or newer, then run these commands in this folder:

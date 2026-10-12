@@ -10,6 +10,7 @@ import {findAnswerPassage} from './answer-source.js';
 import {compileBookAnswer} from './book-answer.js';
 import {requestManagedExplanation,getAnonymousClientId} from './managed-ai.js';
 import {MANAGED_AI_ENDPOINT} from './service-config.js';
+import {questionDestination,droppedBooks} from './studio.js';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
@@ -21,11 +22,18 @@ function button(text,fn,className='text-button'){const b=node('button',className
 function message(text,error=false){$('message').textContent=text;$('message').hidden=!text;$('message').className=`message${error?' error':''}`;}
 function updateControls(){
   const busy=!!state.activeJob;state.questions=parseQuestions($('questions').value);
+  document.body.classList.toggle('is-busy',busy);
+  if(busy||!state.results.length)setFocusMode(false);
+  if($('focus-toggle'))$('focus-toggle').disabled=busy||!state.results.length;
   $('find').disabled=busy||!state.books.length||!state.questions.length;
   $('export').disabled=busy||!state.results.some(r=>r.passages.length||r.figures.some(f=>f.confirmed)||r.explanation||r.bookAnswer);
   $('run-ocr').disabled=busy||!state.session;$('book-tools').hidden=!state.session;$('progress-area').hidden=!busy;
   for(const id of ['book-file','assignment-file','active-book','answer-length','questions','save-book','page-label','saved-books','delete-saved','connect-ai'])$(id).disabled=busy;
   for(const b of document.querySelectorAll('#library-books button, #results button, #results input'))b.disabled=busy||(b.dataset.needsAi==='true'&&!apiKey&&!MANAGED_AI_ENDPOINT);
+  for(const b of document.querySelectorAll('#desk-question-list button, #empty-results button'))b.disabled=busy;
+  $('question-select').disabled=busy;
+  $('question-previous').disabled=busy||state.activeQuestionIndex===0;
+  $('question-next').disabled=busy||state.activeQuestionIndex>=state.results.length-1;
   const n=state.questions.length;$('question-count').textContent=n?`${n} question${n===1?'':'s'} detected`:'No questions yet';serviceStatus();
 }
 function progress(p){$('progress-label').textContent=`${p.phase} · ${p.completed} / ${p.total}`;$('progress').max=p.total||100;$('progress').value=p.completed||0;}
@@ -52,7 +60,14 @@ async function indexLibrary(books,signal){
 function renderLibrary(){
   $('library').hidden=!state.books.length;$('active-book').replaceChildren(...state.books.map(b=>new Option(b.filename,b.id)));$('active-book').value=state.activeBookId||'';
   const host=$('library-books');host.replaceChildren();
-  for(const book of state.books){const row=node('div','library-book');row.append(node('span','',`${book.filename} · ${book.pageCount} pages`),button('Remove',()=>removeBook(book.id)));host.append(row);}
+  for(const [i,book] of state.books.entries()){
+    const active=book.id===state.activeBookId,row=node('div',`book-tile${active?' is-active':''}`);row.dataset.bookSlot=String(i%4);row.dataset.bookId=book.id;
+    const select=button('',()=>{controller.selectBook(book.id);renderLibrary();host.querySelector(`[data-book-id="${book.id}"] .book-select`)?.focus({preventScroll:true});},'book-select');select.setAttribute('aria-pressed',String(active));select.setAttribute('aria-label',`Use ${book.filename} for source viewing and book tools`);
+    const spine=node('span','book-spine',String(i+1).padStart(2,'0'));spine.setAttribute('aria-hidden','true');
+    const info=node('span','book-info'),name=node('span','book-name',book.filename.replace(/\.pdf$/i,'').replace(/_/g,' '));name.title=book.filename;
+    info.append(name,node('span','book-meta',`${book.pageCount} pages${active?' · Selected':''}`));select.append(spine,info);
+    const remove=button('×',()=>removeBook(book.id),'book-remove');remove.setAttribute('aria-label',`Remove ${book.filename}`);remove.title='Remove book';row.append(select,remove);host.append(row);
+  }
   const total=state.books.reduce((sum,b)=>sum+b.pageCount,0);
   $('book-title').textContent=state.books.length?`${state.books.length} book${state.books.length===1?'':'s'} open`:'Add your textbooks';
   $('book-detail').textContent=state.books.length?`${total} pages · ready to search`:'Select one or more PDFs from your device';
@@ -81,6 +96,22 @@ async function removeBook(id){
 }
 $('book-file').addEventListener('change',e=>{const selected=[...e.target.files];e.target.value='';addBooks(selected);});
 $('active-book').addEventListener('change',e=>{controller.selectBook(e.target.value);renderLibrary();});
+function setFocusMode(enabled){
+  const active=!!enabled&&!!state.results.length&&!state.activeJob;document.body.classList.toggle('focus-mode',active);
+  const toggle=$('focus-toggle');if(toggle){toggle.setAttribute('aria-pressed',String(active));toggle.textContent=active?'Back to desk':'Focus view';}
+}
+$('focus-toggle')?.addEventListener('click',()=>{setFocusMode(!document.body.classList.contains('focus-mode'));if(document.body.classList.contains('focus-mode'))$('focus-toggle').closest('.results-top').scrollIntoView({behavior:'instant',block:'start'});});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('focus-mode')&&!document.querySelector('dialog[open]')){setFocusMode(false);$('focus-toggle')?.focus();}});
+$('empty-add-book')?.addEventListener('click',()=>$('book-file').click());
+$('empty-add-questions')?.addEventListener('click',()=>{$('questions').scrollIntoView({behavior:'instant',block:'center'});$('questions').focus();});
+let dragDepth=0;const dropzone=$('book-dropzone');
+const fileDrag=e=>Array.from(e.dataTransfer?.types||[]).includes('Files');
+dropzone?.addEventListener('dragenter',e=>{if(!fileDrag(e))return;e.preventDefault();dragDepth++;if(!state.activeJob)dropzone.classList.add('is-dragging');});
+dropzone?.addEventListener('dragover',e=>{if(!fileDrag(e))return;e.preventDefault();e.dataTransfer.dropEffect=state.activeJob?'none':'copy';});
+dropzone?.addEventListener('dragleave',()=>{dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)dropzone.classList.remove('is-dragging');});
+dropzone?.addEventListener('drop',e=>{if(!fileDrag(e))return;e.preventDefault();dragDepth=0;dropzone.classList.remove('is-dragging');if(state.activeJob)return;const selected=droppedBooks(e.dataTransfer.files);if(!selected.length){message('Drop a PDF textbook here. Assignment images go in the assignment upload.',true);return;}addBooks(selected);});
+function selectBookmark(index,focus=false){if(state.activeJob)return;controller.selectQuestion(index);renderResults();if(focus){const selected=$('desk-question-list')?.querySelector(`[data-question-index="${index}"]`);selected?.focus({preventScroll:true});selected?.scrollIntoView({behavior:'instant',block:'nearest',inline:'nearest'});}}
+$('desk-question-list')?.addEventListener('keydown',e=>{const index=Number(e.target.closest('[data-question-index]')?.dataset.questionIndex);const next=questionDestination(state.results.length,index,e.key);if(next==null||state.activeJob)return;e.preventDefault();selectBookmark(next,true);});
 $('questions').addEventListener('input',()=>{state.results=[];renderResults();});
 $('answer-length').addEventListener('change',()=>{for(const r of state.results)delete r.explanation;renderResults();message('Length updated. Find passages again for more source context, or generate a new explanation.');});
 $('question-select').addEventListener('change',e=>{controller.selectQuestion(Number(e.target.value));renderResults();});
@@ -90,7 +121,7 @@ $('assignment-file').addEventListener('change',async e=>{const file=e.target.fil
 $('find').addEventListener('click',async()=>{
   const questions=parseQuestions($('questions').value),library=context();
   await operate(async(signal,job)=>{progress({completed:0,total:questions.length,phase:'Finding passages'});const response=await workerCall('search',{libraryId,questions,options:{wordBudget:targetWords()}},signal,job);return {results:resolveResultReferences(library,response.payload),questions};});
-  renderResults();if(state.results.length)$('results-heading').scrollIntoView({behavior:'instant',block:'start'});
+  renderResults();if(state.results.length)$('results-heading').closest('.results-top').scrollIntoView({behavior:'instant',block:'start'});
 });
 async function viewSource(passage,figure,result){
   if(state.activeJob||sourceOpening||$('source-dialog').open)return;sourceOpening=true;
@@ -143,9 +174,10 @@ function renderExplanation(card,result){
 async function renderResults(){
   for(const r of state.results)r.bookAnswer=compileBookAnswer(r,{targetWords:targetWords()});
   const revision=++resultRevision,host=$('results');host.replaceChildren();$('empty-results').hidden=state.results.length>0;updateControls();
-  const result=controller.currentResult(),i=state.activeQuestionIndex,library=context();$('question-navigation').hidden=!result;if(!result)return;
+  const result=controller.currentResult(),i=state.activeQuestionIndex,library=context();$('question-navigation').hidden=!result;
+  const queue=$('desk-question-list');if(queue){queue.replaceChildren(...state.results.map((r,n)=>{const tab=button('',()=>selectBookmark(n,true),`question-tab${n===i?' is-active':''}`);tab.dataset.questionIndex=String(n);tab.tabIndex=n===i?0:-1;tab.setAttribute('aria-current',n===i?'true':'false');tab.setAttribute('aria-label',`Question ${n+1}: ${r.question.text}`);tab.title=r.question.text;tab.append(node('span','question-tab-number',`Q${n+1}`),node('span','question-tab-copy',r.question.text),node('span','question-tab-status',r.status==='no-match'?'Needs a source':'Book passages'));return tab;}));}if(!result)return;
   $('question-select').replaceChildren(...state.results.map((r,n)=>new Option(`Q${n+1} · ${r.question.text}`,String(n))));$('question-select').value=String(i);
-  $('question-position').textContent=`${i+1} of ${state.results.length}`;$('question-previous').disabled=i===0;$('question-next').disabled=i===state.results.length-1;
+  $('question-position').textContent=`${i+1} of ${state.results.length}`;$('question-previous').disabled=!!state.activeJob||i===0;$('question-next').disabled=!!state.activeJob||i===state.results.length-1;
   const card=node('article','question-card'),head=node('div','question-header');head.append(node('span','q-number',`Q${i+1}`),node('h3','',result.question.text));
   card.append(head,node('span',`result-status ${result.status}`,result.status==='no-match'?'No match found in open books':!result.passages.length?'No passages selected':`${result.status==='partial'?'Partial matches':'Source matches'} · ${result.passages.reduce((s,p)=>s+wordCount(p.text),0)} source words`));renderExplanation(card,result);
   if(result.bookSummaries?.length>1){const notes=node('details','book-coverage');notes.append(node('summary','',`Searched ${result.bookSummaries.length} books`));for(const b of result.bookSummaries)notes.append(node('p','',`${b.name}: ${b.status==='no-match'?'no reliable passage':b.status==='partial'?'partial matches':'source matches'}`));card.append(notes);}
