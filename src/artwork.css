@@ -1,0 +1,118 @@
+/* Every cover, including its rotated corners, belongs inside the upload object's footprint. */
+.passage-app .book-sculpture {
+  width: min(100%, 520px);
+  height: auto;
+  aspect-ratio: 1.36;
+  max-width: 520px;
+  margin: 12px auto 20px;
+  overflow: visible;
+  perspective: none;
+  container-type: inline-size;
+}
+
+.passage-app .book-sculpture .sculpture-book {
+  box-sizing: border-box;
+  padding: 4.1cqw 3.2cqw;
+  border-left-width: 1.15cqw;
+  box-shadow: .7cqw .7cqw 0 #cccac0, .95cqw 1cqw 0 #fff, 1.3cqw 1.9cqw 2.2cqw #21211d17;
+  transform-origin: center;
+  overflow: visible;
+}
+
+.passage-app .book-sculpture .sculpture-book > span {
+  display: block;
+  font-size: 8.3cqw;
+  line-height: .96;
+  letter-spacing: -.45cqw;
+}
+
+.passage-app .book-sculpture .sculpture-book > i {
+  left: 3.2cqw;
+  bottom: 3.2cqw;
+  font-size: 1.9cqw;
+  letter-spacing: .2cqw;
+}
+
+.passage-app .book-sculpture .book-a {
+  left: 11%;
+  right: auto;
+  top: 15%;
+  width: 31.5%;
+  height: 67%;
+  transform: rotate(-15deg);
+}
+
+.passage-app .book-sculpture .book-a::after {
+  inset: 55% 11% 18%;
+}
+
+.passage-app .book-sculpture .book-b {
+  left: 38%;
+  right: auto;
+  top: 8%;
+  width: 35%;
+  height: 75%;
+  transform: rotate(9deg);
+}
+
+.passage-app .book-sculpture .book-b > span {
+  font-size: 10.5cqw;
+  letter-spacing: -.6cqw;
+  line-height: .94;
+}
+
+.passage-app .book-sculpture .book-b > i {
+  font-size: 1.5cqw;
+}
+
+.passage-app .book-sculpture .book-c {
+  left: 64%;
+  right: auto;
+  top: 37%;
+  width: 24%;
+  height: 52%;
+  padding: 3.5cqw 2.6cqw;
+  transform: rotate(19deg);
+}
+
+.passage-app .book-sculpture .book-c > span {
+  font-size: 6cqw;
+  letter-spacing: -.3cqw;
+}
+
+.passage-app .book-sculpture .book-c > i {
+  left: auto;
+  right: 2.6cqw;
+  bottom: 2cqw;
+  font-size: 6cqw;
+}
+
+.passage-app .book-sculpture .paper-label { display: none; }
+
+/* The widest hover footprint stays below 98% of the container, including the page edges. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .passage-app .book-sculpture .sculpture-book {
+    transition: transform 260ms cubic-bezier(.2, .8, .2, 1);
+  }
+
+  .passage-app .upload-object:hover .book-sculpture .book-a { transform: translate(-1cqw, -.74cqw) rotate(-18deg); }
+  .passage-app .upload-object:hover .book-sculpture .book-b { transform: translateY(-1.5cqw) rotate(5deg); }
+  .passage-app .upload-object:hover .book-sculpture .book-c { transform: translate(1cqw, -.74cqw) rotate(23deg); }
+}
+
+@media (max-width: 800px) and (min-width: 561px) {
+  .passage-app .source-hero { grid-template-columns: 1fr; gap: 22px; }
+  .passage-app .upload-object { width: 100%; max-width: 520px; justify-self: center; }
+}
+
+@media (max-width: 560px) {
+  .passage-app .book-sculpture { max-width: 100%; margin: 12px auto 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passage-app .book-sculpture .sculpture-book { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .passage-app .book-sculpture .sculpture-book { border: 1px solid CanvasText; box-shadow: none; }
+}

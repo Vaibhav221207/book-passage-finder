@@ -16,6 +16,12 @@ export function coverageNotes(answer,result){
   return [...new Set([...(answer?.missingDetails||[]),...(result?.coverageNotes||[])].filter(note=>typeof note==='string').map(note=>note.trim()).filter(Boolean))];
 }
 
+export function displayCoverageNotes(answer,result,books=[]){
+  const generic='Source matches are suggestions. Check that they cover your question.';
+  const boilerplate=new Set([generic,...books.map(book=>`${book.filename}: ${generic}`)]);
+  return coverageNotes(answer,result).filter(note=>!boilerplate.has(note));
+}
+
 const unmeasuredPhases=new Set(['Preparing book search','Finding passages','Making your answer clearer']);
 
 /** Only report a fraction when the operation supplies meaningful measured progress. */

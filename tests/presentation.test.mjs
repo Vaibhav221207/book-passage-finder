@@ -62,6 +62,16 @@ test('coverage notes combine AI gaps and search gaps once in their original orde
   assert.deepEqual(call('coverageNotes',undefined,undefined),[]);
 });
 
+test('display coverage removes only exact generic advice, including known book prefixes',()=>{
+  const generic='Source matches are suggestions. Check that they cover your question.';
+  assert.deepEqual(call('displayCoverageNotes',{missingDetails:[generic]},{coverageNotes:[`${book.filename}: ${generic}`,'Missing ASTM procedure.']},[book]),['Missing ASTM procedure.']);
+});
+
+test('display coverage keeps a real missing detail even when it ends with generic advice',()=>{
+  const gap='Missing ASTM procedure. Source matches are suggestions. Check that they cover your question.';
+  assert.deepEqual(call('displayCoverageNotes',{missingDetails:[gap]},{coverageNotes:[`${book.filename}: ${gap}`]},[book]),[gap,`${book.filename}: ${gap}`]);
+});
+
 test('phases without incremental reports never suggest a measurable fraction',()=>{
   for(const phase of ['Preparing book search','Finding passages','Making your answer clearer']){
     assert.deepEqual(call('progressPresentation',{phase,completed:0,total:1}),{label:phase,detail:'',total:null,value:null});

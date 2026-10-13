@@ -1,4 +1,4 @@
-/* Work belongs to the workspace: a line of feedback, never a floating card. */
+/* A small book reads beside the work. Real progress remains available to assistive technology. */
 .passage-app .work-feedback {
   position: sticky;
   top: 0;
@@ -13,13 +13,13 @@
   position: relative;
   inset: auto;
   display: grid;
-  grid-template-columns: 20px minmax(0, 1fr) auto;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 12px;
+  column-gap: 13px;
   row-gap: 0;
-  width: 100%;
+  width: min(100%, 520px);
   margin: 0;
-  padding: 7px 0 0;
+  padding: 8px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -30,27 +30,89 @@
 .passage-app .work-feedback .progress-mark {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 24px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #a13a25;
-  font-family: Passage Display, sans-serif;
-  font-size: 21px;
-  line-height: 1;
+  color: var(--accent);
+}
+
+.passage-app .work-feedback .loader-book {
+  position: relative;
+  display: block;
+  width: 36px;
+  height: 26px;
+  perspective: 110px;
+}
+
+.passage-app .work-feedback .loader-book::before,
+.passage-app .work-feedback .loader-book::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 18px;
+  height: 26px;
+  border: 1.5px solid currentColor;
+  background: var(--bg);
+}
+
+.passage-app .work-feedback .loader-book::before {
+  left: 0;
+  border-radius: 2px 0 0 2px;
+  transform: skewY(-10deg);
+  transform-origin: right center;
+}
+
+.passage-app .work-feedback .loader-book::after {
+  right: 0;
+  border-radius: 0 2px 2px 0;
+  transform: skewY(10deg);
+  transform-origin: left center;
+}
+
+.passage-app .work-feedback .loader-page {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  z-index: 1;
+  display: block;
+  width: 18px;
+  height: 26px;
+  border: 1px solid currentColor;
+  border-radius: 0 2px 2px 0;
+  background: var(--bg);
+  transform: rotateY(0deg) skewY(10deg);
+  transform-origin: left center;
+  opacity: 0;
+  animation: none;
+}
+
+/* This loop communicates an active task, rather than suggesting invented progress. */
+.passage-app.is-busy .progress-area:not([hidden]) .loader-page {
+  animation: passage-page-turn 2s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+
+.passage-app.is-busy .progress-area:not([hidden]) .loader-page:nth-child(2) { animation-delay: -.65s; }
+.passage-app.is-busy .progress-area:not([hidden]) .loader-page:nth-child(3) { animation-delay: -1.3s; }
+
+@keyframes passage-page-turn {
+  0%, 8% { transform: rotateY(0deg) skewY(10deg); opacity: 0; }
+  13% { opacity: 1; }
+  72% { transform: rotateY(-180deg) skewY(10deg); opacity: 1; }
+  100% { transform: rotateY(-180deg) skewY(10deg); opacity: 0; }
 }
 
 .passage-app .work-feedback .progress-area .progress-copy {
   display: flex;
-  flex-direction: row;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 4px 15px;
+  gap: 2px;
   min-width: 0;
-  padding: 8px 0;
+  padding: 2px 0;
 }
 
 .passage-app .work-feedback #progress-label {
@@ -71,14 +133,14 @@
 }
 
 .passage-app .work-feedback .progress-area #cancel {
-  min-width: 62px;
+  min-width: 66px;
   min-height: 44px;
   padding: 10px 5px;
   border: 0;
   border-radius: 0;
   background: transparent;
   color: #68685c;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   text-decoration: underline;
   text-decoration-color: #aaa99a;
@@ -91,65 +153,16 @@
 }
 
 .passage-app .work-feedback #progress {
-  grid-column: 1 / -1;
+  position: absolute;
   display: block;
-  appearance: none;
-  width: 100%;
-  height: 3px;
-  margin: 1px 0 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
   padding: 0;
   border: 0;
-  border-radius: 0;
-  background: #deded4;
-  accent-color: var(--accent);
-}
-
-.passage-app .work-feedback #progress::-webkit-progress-bar {
-  border-radius: 0;
-  background: #deded4;
-}
-
-.passage-app .work-feedback #progress::-webkit-progress-value {
-  border-radius: 0;
-  background: var(--accent);
-}
-
-.passage-app .work-feedback #progress::-moz-progress-bar {
-  border-radius: 0;
-  background: var(--accent);
-}
-
-/* The travelling rule communicates unknown duration without pretending to be a percentage. */
-.passage-app .work-feedback .progress-area:has(#progress:indeterminate)::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 22%;
-  height: 3px;
-  background: var(--accent);
-  transform: translateX(0);
-  animation: passage-work-rule 1.7s linear infinite;
-  pointer-events: none;
-}
-
-.passage-app .work-feedback #progress:indeterminate {
-  opacity: 0;
-}
-
-.passage-app .work-feedback .progress-area:has(#progress:indeterminate)::before {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: #deded4;
-  pointer-events: none;
-}
-
-@keyframes passage-work-rule {
-  to { transform: translateX(354%); }
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .passage-app .work-feedback .message-line {
@@ -236,8 +249,8 @@
 
 @media (max-width: 560px) {
   .passage-app .work-feedback { padding-right: 20px; padding-left: 20px; }
-  .passage-app .work-feedback .progress-area { column-gap: 9px; padding-top: 5px; }
-  .passage-app .work-feedback .progress-area .progress-copy { flex-direction: column; gap: 2px; padding: 9px 0; }
+  .passage-app .work-feedback .progress-area { column-gap: 10px; padding: 7px 0; }
+  .passage-app .work-feedback .progress-area .progress-copy { padding: 2px 0; }
   .passage-app .work-feedback #progress-label { font-size: 13px; }
   .passage-app .work-feedback #progress-detail { font-size: 11px; }
   .passage-app .work-feedback .message-line { gap: 7px; }
@@ -245,16 +258,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .passage-app .work-feedback .progress-area:has(#progress:indeterminate)::after {
+  .passage-app.is-busy .progress-area:not([hidden]) .loader-page {
     animation: none;
-    transform: translateX(177%);
+    opacity: 0;
   }
 }
 
 @media (forced-colors: active) {
-  .passage-app .work-feedback #progress { border: 1px solid CanvasText; }
-  .passage-app .work-feedback .progress-area:has(#progress:indeterminate)::before { background: CanvasText; }
-  .passage-app .work-feedback .progress-area:has(#progress:indeterminate)::after { background: Highlight; }
+  .passage-app .work-feedback .progress-mark { color: CanvasText; }
+  .passage-app .work-feedback .loader-book::before,
+  .passage-app .work-feedback .loader-book::after,
+  .passage-app .work-feedback .loader-page { background: Canvas; }
   .passage-app .work-feedback .message-line .message,
   .passage-app .work-feedback .message-line .message::before,
   .passage-app .work-feedback .message-line .message.error,

@@ -12,7 +12,7 @@ import {requestManagedExplanation,getAnonymousClientId} from './managed-ai.js';
 import {MANAGED_AI_ENDPOINT} from './service-config.js';
 import {questionDestination,droppedBooks} from './studio.js?v=20261013-2';
 import {chooseWorkspaceView} from './workspace-flow.js';
-import {citationPresentation,coverageNotes,progressPresentation} from './presentation.js';
+import {citationPresentation,displayCoverageNotes,progressPresentation} from './presentation.js?v=20261013-6';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
@@ -23,6 +23,10 @@ const context=()=>({books:state.books});
 const targetWords=()=>Number($('answer-length').value)||300;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
 function button(text,fn,className='text-button'){const b=node('button',className,text);b.type='button';b.disabled=!!state.activeJob;b.addEventListener('click',fn);return b;}
+function icon(name){
+  const paths={write:'M15 4l5 5M4 20l4-1 12-12a2 2 0 0 0-5-3L3 16l1 4Z',copy:'M8 8h12v12H8ZM4 16H3V3h13v1',passages:'M12 5v15M12 5C8 3 5 3 2 4v14c3-1 6-1 10 2 4-3 7-3 10-2V4c-3-1-6-1-10 1Z',figures:'M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5M7 15l4-4 3 3 3-6',books:'M3 4h5v16H3ZM10 4h4v16h-4ZM16 5l4-1 3 15-4 1Z',info:'M12 16v-4M12 8h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z'};
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),path=document.createElementNS(svg.namespaceURI,'path');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('class','action-icon');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.6');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');path.setAttribute('d',paths[name]||paths.info);svg.append(path);return svg;
+}
 function message(text,error=false){
   clearTimeout(messageTimer);$('message').textContent=text;$('message').hidden=!text;$('message-line').hidden=!text;
   $('message').className=`message${error?' error':''}`;
@@ -164,7 +168,7 @@ $('find').addEventListener('click',async()=>{
 async function viewSource(passage,figure,result){
   if(state.activeJob||sourceOpening||$('source-dialog').open)return;sourceOpening=true;
   const opener=document.activeElement;let confirmed=false,restoreFocus;
-  try{const {openSourceDialog}=await import('./source-view.js');if(state.activeJob||!state.results.includes(result))return;
+  try{const {openSourceDialog}=await import('./source-view.js?v=20261013-6');if(state.activeJob||!state.results.includes(result))return;
     restoreFocus=()=>{if(confirmed&&controller.currentResult()===result)$('results').querySelector('[data-source-tool="figures"]')?.focus({preventScroll:true});else if(opener?.isConnected)opener.focus({preventScroll:true});};
     $('source-dialog').addEventListener('close',restoreFocus,{once:true});
     await openSourceDialog(context(),{passage,figure,bookId:state.activeBookId,onConfirm:selection=>{if(!state.results.includes(result))return;confirmed=true;if(figure)Object.assign(figure,selection,{confirmed:true});else result.figures.push({...selection,id:crypto.randomUUID(),confirmed:true});sourcePanels.set(result,'figures');renderResults();}});
@@ -199,18 +203,20 @@ function renderExplanation(card,result){
   const answer=result.explanation||result.bookAnswer;
   if(!answer)area.append(node('p','explanation-help',result.passages.length?'The selected passages do not contain complete sentences for a draft. Review the source or try AI.':result.status==='no-match'?'These books do not provide a reliable answer. Add another textbook or your lecture notes, or try an unverified general AI answer.':'No passages selected. Search again to restore book evidence, or capture directly from a source page.'));
   const actions=node('div','explanation-actions'),aiButton=button(result.explanation?'Rewrite with AI':result.passages.length?'Improve with AI':'Try a general AI answer',()=>explain(result),'secondary');aiButton.dataset.needsAi='true';actions.append(aiButton);
+  aiButton.prepend(icon('write'));
   if(answer){
     const label=answer.mode==='general'?'General AI answer · not verified against your books':answer.mode==='extractive'?'Organized textbook sentences · linked to the original pages':'AI explanation · based on the selected book passages';
-    const draft=node('div',`answer-draft ${answer.mode} ${answer.mode==='extractive'?'book-answer':''}`);draft.append(node('p','answer-label',label));if(answer.title&&answer.title!=='Answer from your books')draft.append(node('h4','',answer.title));
+    const draft=node('div',`answer-draft ${answer.mode} ${answer.mode==='extractive'?'book-answer':''}`),words=answer.sections.reduce((n,s)=>n+wordCount(s.text),0);draft.append(node('p','answer-label',`${answer.mode==='general'?'General AI · unverified':answer.mode==='extractive'?'Book excerpts':'AI explanation'} · ${words} words`));if(answer.title&&answer.title!=='Answer from your books')draft.append(node('h4','',answer.title));
     for(const section of answer.sections){if(section.heading)draft.append(node('h5','',section.heading));draft.append(node('p','answer-text',section.text));
       const citations=node('div','answer-citations');for(const id of section.sourceIds){const source=answer.sources.find(s=>s.id===id);if(!source)continue;const reference=citationPresentation(source,state.books),link=button(reference.label,()=>{const passage=findAnswerPassage(result,source);if(passage)viewSource(passage,null,result);},'citation-link');link.title=reference.description;link.setAttribute('aria-label',`Open ${reference.description}`);citations.append(link);}if(citations.childNodes.length){citations.setAttribute('aria-label','Source pages for this paragraph');draft.append(citations);}
     }
-    draft.append(node('p','answer-model',`${answer.sections.reduce((n,s)=>n+wordCount(s.text),0)} words · ${answer.mode==='extractive'?'assembled on your device':'review the source before using'}`));
     actions.append(button('Copy answer',async()=>{try{const text=[label,answer.title,...answer.sections.map(s=>`${s.heading?s.heading+'\n':''}${s.text}${s.sourceIds.length?' ['+s.sourceIds.join(', ')+']':''}`),...(answer.missingDetails||[]),...answer.sources.map(s=>`[${s.id}] ${s.pages.map(pageName).join(' / ')}`)].join('\n\n');await navigator.clipboard.writeText(text);message('Answer copied with its source references.');}catch{message('Copy is unavailable here. Select the answer text to copy it.',true);}}));
+    actions.lastElementChild?.prepend(icon('copy'));
     if(result.explanation)actions.append(button('Use book answer',()=>{delete result.explanation;renderResults();}));area.append(draft);
   }
-  const notes=coverageNotes(answer,result);if(notes.length){const review=node('details','review-notes');review.open=reviewPanels.get(result)!==false;review.append(node('summary','',`Review notes · ${notes.length}`));review.addEventListener('toggle',()=>reviewPanels.set(result,review.open));const list=node('ul');for(const note of notes){const item=node('li','',note);for(const [index,book]of state.books.entries())if(note.startsWith(`${book.filename}: `)&&state.books.filter(b=>b.filename===book.filename).length===1){item.textContent=`Book ${index+1} · ${note.slice(book.filename.length+2)}`;item.title=note;break;}list.append(item);}review.append(list);area.append(review);}
-  area.append(actions,node('p','explanation-help',!MANAGED_AI_ENDPOINT&&!apiKey?'Book answers need no account, key or download. Shared AI is currently unavailable.':`Optional AI · about ${targetWords()} words. Clicking sends this question and selected text to ${apiKey?'OpenRouter':'our AI service'}.`));card.append(area);
+  const notes=displayCoverageNotes(answer,result,state.books);if(notes.length){const review=node('details','review-notes');review.open=reviewPanels.get(result)!==false;review.append(node('summary','',`Review notes · ${notes.length}`));review.addEventListener('toggle',()=>reviewPanels.set(result,review.open));const list=node('ul');for(const note of notes){const item=node('li','',note);for(const [index,book]of state.books.entries())if(note.startsWith(`${book.filename}: `)&&state.books.filter(b=>b.filename===book.filename).length===1){item.textContent=`Book ${index+1} · ${note.slice(book.filename.length+2)}`;item.title=note;break;}list.append(item);}review.append(list);area.append(review);}
+  const info=node('details','ai-info'),summary=node('summary');summary.setAttribute('aria-label','About AI answers and privacy');summary.title='About AI answers';summary.append(icon('info'));info.append(summary,node('p','',!MANAGED_AI_ENDPOINT&&!apiKey?'Shared AI is currently unavailable. Book answers work on your device.':`AI aims for about ${targetWords()} words, depending on available evidence. Clicking the AI button sends this question and selected text to ${apiKey?'OpenRouter':'our AI service'}; the full PDFs stay on your device. Book excerpts are exact source sentences. General AI answers are not verified against your books.`));
+  actions.append(info);area.append(actions);card.append(area);
 }
 async function renderResults(){
   for(const r of state.results)r.bookAnswer=compileBookAnswer(r,{targetWords:targetWords()});
@@ -220,22 +226,22 @@ async function renderResults(){
   $('question-select').replaceChildren(...state.results.map((r,n)=>new Option(`Q${n+1} · ${r.question.text}`,String(n))));$('question-select').value=String(i);
   $('question-position').textContent=`${i+1} of ${state.results.length}`;$('question-previous').disabled=!!state.activeJob||i===0;$('question-next').disabled=!!state.activeJob||i===state.results.length-1;
   const card=node('article','question-card'),head=node('div','question-header');head.append(node('span','q-number',`Q${i+1}`),node('h3','',result.question.text));
-  card.append(head,node('span',`result-status ${result.status}`,result.status==='no-match'?'No match found in open books':!result.passages.length?'No passages selected':`${result.status==='partial'?'Partial matches':'Source matches'} · ${result.passages.reduce((s,p)=>s+wordCount(p.text),0)} source words`));renderExplanation(card,result);
+  card.append(head,node('span',`result-status sr-only ${result.status}`,result.status==='no-match'?'No match found in open books':!result.passages.length?'No passages selected':`${result.status==='partial'?'Partial matches':'Source matches'}`));renderExplanation(card,result);
   renderSourceTools(card,result,revision);
   host.append(card);updateControls();
 }
 function renderSourceTools(card,result,revision){
   const library=context(),i=state.activeQuestionIndex,tray=node('section','source-tools'),rail=node('div','source-tools-rail'),controls=node('div','source-tool-buttons');
-  tray.setAttribute('aria-label','Sources for this answer');rail.append(node('span','source-tools-label','BACK IT UP'),controls);tray.append(rail);
+  tray.setAttribute('aria-label','Sources for this answer');rail.append(controls);tray.append(rail);
   const panes={},triggers={},counts={};
   const selectPane=(key,restore=false)=>{
     const next=restore?key:sourcePanels.get(result)===key?null:key;sourcePanels.set(result,next);
     for(const name of Object.keys(panes)){panes[name].hidden=name!==next;triggers[name].setAttribute('aria-expanded',String(name===next));}
   };
-  for(const [key,label]of [['passages','Passages & screenshots'],['figures','Figures & tables'],['books','Book details']]){
+  for(const [key,label]of [['passages','Passages'],['figures','Figures'],['books','Books']]){
     const pane=node('div',`source-tool-pane source-tool-${key}`);pane.id=`source-pane-${key}`;pane.hidden=true;
     const trigger=button('',()=>selectPane(key),'source-tool-trigger');trigger.dataset.sourceTool=key;trigger.setAttribute('aria-controls',pane.id);trigger.setAttribute('aria-expanded','false');
-    trigger.append(node('span','source-tool-name',label));const count=node('span','source-tool-count');trigger.append(count,node('span','source-tool-arrow','↗'));
+    trigger.append(icon(key),node('span','source-tool-name',label));trigger.title=key==='passages'?'Text passages and original screenshots':key==='figures'?'Diagrams, graphs and tables':'Book names and matching status';const count=node('span','source-tool-count');trigger.append(count,node('span','source-tool-arrow','↗'));
     controls.append(trigger);tray.append(pane);panes[key]=pane;triggers[key]=trigger;counts[key]=count;
   }
   counts.passages.textContent=String(result.passages.length);counts.books.textContent=String(state.books.length);counts.figures.textContent='…';

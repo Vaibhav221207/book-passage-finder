@@ -142,17 +142,42 @@ test('manual source selection switches book identity and valid page range before
   assert.deepEqual(selector.children.map(n=>n.textContent),['Red handbook.pdf','Blue handbook.pdf']);
   selector.value='blue';await selector.onchange();ui.load();
   const pageInput=ui.label('Physical PDF page');assert.equal(Number(pageInput.max),2);pageInput.value='2';await ui.button('Go').onclick();ui.load();
-  ui.button('Full page').onclick();ui.button('Include selected crop').onclick();
+  ui.button('Whole page').onclick();ui.button('Add to answer').onclick();
   assert.equal(selected.bookId,'blue');assert.equal(selected.page.pdfPage,2);assert.equal(selected.page.bookName,'Blue handbook.pdf');assert.deepEqual(selected.bounds,{x:0,y:0,width:1,height:1});
 });
 
 test('source crop reset and corner resize preserve the selected book and complete rectangle',async t=>{
   const ui=dialogDom(t),[,blue]=books();let selected;
   await openSourceDialog(blue,{figure:{bookId:'blue',page:blue.pages[0].ref,bounds:box,caption:'Vibration diagram'},onConfirm:value=>{selected=value;}});ui.load();
-  ui.button('Full page').onclick();ui.button('Reset selection').onclick();
+  ui.button('Whole page').onclick();ui.button('Selection').onclick();
   const stage=ui.get('source-stage'),handle=ui.label('Resize selected crop');assert.ok(handle,'Crop needs a usable resize corner');
-  stage.onpointerdown({target:handle,pointerId:1,clientX:60,clientY:40,preventDefault(){}});stage.onpointermove({clientX:90,clientY:80});stage.onpointerup();ui.button('Include selected crop').onclick();
+  stage.onpointerdown({target:handle,pointerId:1,clientX:60,clientY:40,preventDefault(){}});stage.onpointermove({clientX:90,clientY:80});stage.onpointerup();ui.button('Add to answer').onclick();
   assert.equal(selected.bookId,'blue');assert.equal(selected.caption,'Vibration diagram');assert.deepEqual(selected.bounds,{x:.1,y:.1,width:.8,height:.7000000000000001});
+});
+
+test('keyboard resizing stays within the page and selection restores the original crop',async t=>{
+  const ui=dialogDom(t),[,blue]=books();let selected;
+  await openSourceDialog(blue,{figure:{bookId:'blue',page:blue.pages[0].ref,bounds:box,caption:'Vibration diagram'},onConfirm:value=>{selected=value;}});ui.load();
+  assert.equal(ui.label('Source book'),undefined,'A single source needs no book chooser');
+  const handle=ui.label('Resize selected crop');let prevented=0;
+  handle.onkeydown({key:'ArrowRight',shiftKey:true,preventDefault(){prevented++;}});
+  assert.equal(ui.button('Whole page').attrs['aria-pressed'],'false');
+  ui.button('Whole page').onclick();assert.equal(ui.button('Whole page').attrs['aria-pressed'],'true');
+  handle.onkeydown({key:'ArrowRight',shiftKey:true,preventDefault(){prevented++;}});
+  ui.button('Selection').onclick();
+  handle.onkeydown({key:'ArrowDown',shiftKey:false,preventDefault(){prevented++;}});
+  ui.button('Add to answer').onclick();
+  assert.equal(prevented,3);assert.equal(selected.bookId,'blue');assert.deepEqual(selected.bounds,{...box,height:.305});
+});
+
+test('Enter changes the physical PDF page while invalid page input leaves the current source intact',async t=>{
+  const ui=dialogDom(t),[,blue]=books();blue.pageCount=2;blue.pages.push({...blue.pages[0],ref:{...blue.pages[0].ref,pdfPage:2,printedLabel:'18'}});let selected;
+  await openSourceDialog(blue,{onConfirm:value=>{selected=value;}});ui.load();
+  const input=ui.label('Physical PDF page');input.value='3';await input.onkeydown({key:'Enter',preventDefault(){}});
+  assert.equal(input.attrs['aria-invalid'],'true');assert.ok(ui.get('source-title').attrs['aria-label'].includes('PDF 1'));
+  input.value='2';await input.onkeydown({key:'Enter',preventDefault(){}});ui.load();
+  assert.equal(input.attrs['aria-invalid'],'false');ui.button('Whole page').onclick();ui.button('Add to answer').onclick();
+  assert.equal(selected.page.pdfPage,2);assert.equal(selected.page.printedLabel,'18');assert.equal(selected.page.bookName,'Blue handbook.pdf');assert.deepEqual(selected.bounds,{x:0,y:0,width:1,height:1});
 });
 
 test('a stale original-book render cannot replace a newly selected book preview',async t=>{
@@ -161,7 +186,7 @@ test('a stale original-book render cannot replace a newly selected book preview'
   const selector=ui.label('Source book');assert.ok(selector);selector.value='blue';await selector.onchange();ui.load();
   const image=ui.get('source-stage').querySelector('img');assert.ok(image.alt.includes('Blue handbook.pdf'));assert.deepEqual(await pixel(await(await fetch(image.src)).blob()),[0,0,255,255]);
   release();await opening;assert.equal(ui.get('source-stage').querySelector('img'),image);
-  ui.button('Include selected crop').onclick();assert.equal(selected.bookId,'blue');
+  ui.button('Add to answer').onclick();assert.equal(selected.bookId,'blue');
 });
 
 test('a concurrent source-dialog open is rejected before changing the original pending book view',async t=>{
@@ -170,21 +195,21 @@ test('a concurrent source-dialog open is rejected before changing the original p
   const opening=openSourceDialog(context,{bookId:'red',onConfirm:value=>{selected=value;}});await settle();
   try{await openSourceDialog(context,{bookId:'blue',onConfirm:value=>{secondSelection=value;}});}catch(e){error=e;}finally{release();await opening;}
   assert.ok(error,'Opening a second dialog while the first is rendering must reject');assert.match(error.message,/close.*current.*source.*before.*opening.*another/i);
-  ui.load();const image=ui.get('source-stage').querySelector('img');assert.ok(image.alt.includes('Red handbook.pdf'));assert.ok(ui.get('source-title').textContent.includes('Red handbook.pdf'));
-  assert.deepEqual(await pixel(await(await fetch(image.src)).blob()),[255,0,0,255]);ui.button('Include selected crop').onclick();assert.equal(selected.bookId,'red');assert.equal(secondSelection,undefined);
+  ui.load();const image=ui.get('source-stage').querySelector('img');assert.ok(image.alt.includes('Red handbook.pdf'));assert.equal(ui.get('source-title').textContent,'Red handbook · p. 17');assert.ok(ui.get('source-title').attrs.title.includes('Red handbook.pdf'));assert.ok(ui.get('source-title').attrs['aria-label'].includes('Red handbook.pdf'));assert.ok(ui.get('source-title').attrs['aria-label'].includes('PDF 1'));
+  assert.deepEqual(await pixel(await(await fetch(image.src)).blob()),[255,0,0,255]);ui.button('Add to answer').onclick();assert.equal(selected.bookId,'red');assert.equal(secondSelection,undefined);
 });
 
 test('choosing a removed book prevents an older pending preview from re-enabling inclusion',async t=>{
   const ui=dialogDom(t),[red,blue]=books(),context={books:[red,blue]},original=red.renderPage;let release;
   red.renderPage=async()=>{await new Promise(resolve=>{release=resolve;});return original();};
   const opening=openSourceDialog(context,{});await settle();context.books.pop();const selector=ui.label('Source book');selector.value='blue';await selector.onchange();release();await opening;
-  assert.equal(ui.get('source-stage').querySelector('img'),undefined);assert.equal(ui.button('Include selected crop').disabled,true);assert.match(ui.get('source-stage').textContent,/source.*(?:not available|no longer|loaded)/i);
+  assert.equal(ui.get('source-stage').querySelector('img'),undefined);assert.equal(ui.button('Add to answer').disabled,true);assert.match(ui.get('source-stage').textContent,/source.*(?:not available|no longer|loaded)/i);
 });
 
 test('a removed book or cancelled dialog cannot confirm a stale crop',async t=>{
   const ui=dialogDom(t),[,blue]=books(),context={books:[blue]};let selected;
-  await openSourceDialog(context,{onConfirm:value=>{selected=value;}});ui.load();context.books.length=0;ui.button('Include selected crop').onclick();
-  assert.equal(selected,undefined);assert.equal(ui.button('Include selected crop').disabled,true);assert.match(ui.get('source-stage').textContent,/source.*(?:not available|no longer|loaded)/i);
-  ui.get('source-dialog').close();const abort=new AbortController();context.books.push(blue);await openSourceDialog(context,{signal:abort.signal,onConfirm:value=>{selected=value;}});ui.load();abort.abort();ui.button('Include selected crop').onclick();
+  await openSourceDialog(context,{onConfirm:value=>{selected=value;}});ui.load();context.books.length=0;ui.button('Add to answer').onclick();
+  assert.equal(selected,undefined);assert.equal(ui.button('Add to answer').disabled,true);assert.match(ui.get('source-stage').textContent,/source.*(?:not available|no longer|loaded)/i);
+  ui.get('source-dialog').close();const abort=new AbortController();context.books.push(blue);await openSourceDialog(context,{signal:abort.signal,onConfirm:value=>{selected=value;}});ui.load();abort.abort();ui.button('Add to answer').onclick();
   assert.equal(selected,undefined);assert.equal(ui.get('source-dialog').open,false);
 });

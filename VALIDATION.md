@@ -1,5 +1,13 @@
 # Verification record
 
+## Compact book loader and simpler capture — 13 October 2026
+
+- Replaced the full-width loading rail with a small page-turning book, real count text and Cancel. The animation runs only during active visible work; reduced motion uses a static open book. Accessible progress semantics are retained.
+- Rebuilt decorative cover geometry with container-relative dimensions and enough room for rotated corners. Removed the clip-based fix and unnecessary paper caption. The header/footer and answer reader no longer repeat marketing or technical boilerplate; modes remain visibly distinguished as Book excerpts, AI explanation, or General AI / unverified.
+- AI, Copy, source tools and Edit have explicit button surfaces/icons. The AI privacy/behavior explanation is available from a keyboard-accessible information disclosure. Actual coverage gaps remain expanded; only exact generic advice is omitted from the visual reader, with copy/export data unchanged.
+- The crop editor exposes Selection / Whole page and Add to answer / Save image. Precision fields and image detail are collapsed by default. Keyboard resize, Enter page navigation, validated page numbers, full page provenance and touch resizing remain. The DOM order follows the visual order; short landscapes allow dialog scrolling instead of clipping controls.
+- Four new regressions cover crop keyboard/page navigation and preserving meaningful coverage notes. All 228 tests pass. JavaScript and CSS checks, clean build and distribution verification pass (269 assets / 52.5 MB). The distribution checker now distinguishes the standard W3C SVG namespace from an application network endpoint. Production visual checks follow in the output report.
+
 ## Unboxed feedback and source tools — 13 October 2026
 
 - Replaced the floating loading card and persistent success banner with an integrated workspace status line, measured counts, a thin progress rule, Cancel and dismiss controls. Routine success messages clear after seven seconds unless keyboard focus is inside the message; errors persist. Unknown-duration work uses a travelling rule with a static reduced-motion treatment.
