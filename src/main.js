@@ -12,6 +12,7 @@ import {requestManagedExplanation,getAnonymousClientId} from './managed-ai.js';
 import {MANAGED_AI_ENDPOINT} from './service-config.js';
 import {questionDestination,droppedBooks} from './studio.js?v=20261013-2';
 import {chooseWorkspaceView} from './workspace-flow.js';
+import {citationPresentation,coverageNotes,progressPresentation} from './presentation.js';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
@@ -50,13 +51,20 @@ function updateControls(){
   $('question-previous').disabled=busy||state.activeQuestionIndex===0;
   $('question-next').disabled=busy||state.activeQuestionIndex>=state.results.length-1;
   const n=state.questions.length;$('question-count').textContent=n?`${n} question${n===1?'':'s'} detected`:'No questions yet';
-  $('source-count').textContent=String(state.books.length);$('step-question-count').textContent=String(n);$('answer-count').textContent=String(state.results.length);
+  for(const [id,count] of [['source-count',state.books.length],['step-question-count',n],['answer-count',state.results.length]]){$(id).textContent=String(count);$(id).hidden=count===0;}
   $('question-source-summary').textContent=state.books.length?`Searching ${state.books.length} book${state.books.length===1?'':'s'} · ${state.books.reduce((sum,b)=>sum+b.pageCount,0)} pages. Each answer links back to its sources.`:'Add a textbook to find source-backed answers.';
   showWorkspace();serviceStatus();
 }
-function progress(p){$('progress-label').textContent=`${p.phase} · ${p.completed} / ${p.total}`;$('progress').max=p.total||100;$('progress').value=p.completed||0;}
+function progress(p){
+  const display=progressPresentation(p);
+  if($('progress-label').textContent!==display.label)$('progress-label').textContent=display.label;
+  $('progress-detail').textContent=display.detail;
+  $('progress-detail').hidden=!display.detail;
+  if(display.value==null){$('progress').removeAttribute('value');$('progress').max=100;}
+  else{$('progress').max=display.total;$('progress').value=display.value;}
+}
 async function operate(task){
-  abortController?.abort();const localAbort=new AbortController();abortController=localAbort;const job=controller.start();updateControls();message('');
+  abortController?.abort();const localAbort=new AbortController();abortController=localAbort;const job=controller.start();progress({phase:'Getting things ready'});updateControls();message('');
   try{const patch=await task(localAbort.signal,job);if(controller.finish(job,patch||{})){updateControls();return true;}return false;}
   catch(e){if(state.activeJob===job){controller.finish(job);message(e.name==='AbortError'?'Cancelled. You can try again.':e.message,e.name!=='AbortError');updateControls();}return false;}
 }
@@ -85,15 +93,15 @@ function renderLibrary(){
     const spine=node('span','book-spine',String(i+1).padStart(2,'0'));spine.setAttribute('aria-hidden','true');
     const info=node('span','book-info'),name=node('span','book-name',book.filename.replace(/\.pdf$/i,'').replace(/_/g,' '));name.title=book.filename;
     const cover=node('span','book-cover'),fallback=node('span','cover-fallback');fallback.append(node('small','',`SOURCE ${String(i+1).padStart(2,'0')}`),node('b','',name.textContent),node('small','','PDF TEXTBOOK'));cover.append(fallback,spine);
-    info.append(name,node('span','book-meta',`${book.pageCount} page${book.pageCount===1?'':'s'}${active?' · Selected':''}`));select.append(cover,info);
+    info.append(node('span','book-kicker',`BOOK ${String(i+1).padStart(2,'0')} / PDF`),name,node('span','book-meta',`${book.pageCount} page${book.pageCount===1?'':'s'}`),node('span','book-selection',active?'Selected for page tools':'Select for page tools'));select.append(cover,info);
     if(!bookCovers.has(book)){const page=book.pages[0],scale=Math.min(1,350/Math.max(page.width,page.height));bookCovers.set(book,book.renderPage(1,scale).then(canvas=>canvas.toDataURL('image/webp',.8)).catch(()=>null));}
     bookCovers.get(book).then(url=>{if(!url||!cover.isConnected||!state.books.includes(book))return;const image=node('img');image.alt='';image.decoding='async';image.src=url;image.addEventListener('load',()=>{if(cover.isConnected)cover.classList.add('has-preview');},{once:true});cover.append(image);});
     const remove=button('×',()=>removeBook(book.id),'book-remove');remove.setAttribute('aria-label',`Remove ${book.filename}`);remove.title='Remove book';row.append(select,remove);host.append(row);
   }
   const total=state.books.reduce((sum,b)=>sum+b.pageCount,0);
-  $('book-title').textContent=state.books.length?'Room for another book?':'Drop your textbooks here';
+  $('book-title').textContent=state.books.length?'Add to your reading list':'Drop your textbooks here';
   $('book-detail').textContent=state.books.length?'Add lecture notes or another textbook.':'One PDF or a whole reading list.';
-  $('library-summary').textContent=`${state.books.length} book${state.books.length===1?'':'s'} · ${total} page${total===1?'':'s'} to search`;
+  $('library-summary').textContent=`${state.books.length} book${state.books.length===1?'':'s'} / ${total.toLocaleString()} page${total===1?'':'s'}`;
   $('ocr-description').textContent=state.session?.missingTextPages.length?`${state.session.missingTextPages.length} pages in this book have little readable text. Recognize a selected range.`:'Choose the book above, then recognize pages whose text does not extract correctly. OCR downloads English language data.';
   updateControls();
 }
@@ -186,14 +194,15 @@ function renderExplanation(card,result){
     const label=answer.mode==='general'?'General AI answer · not verified against your books':answer.mode==='extractive'?'Organized textbook sentences · linked to the original pages':'AI explanation · based on the selected book passages';
     const draft=node('div',`answer-draft ${answer.mode} ${answer.mode==='extractive'?'book-answer':''}`);draft.append(node('p','answer-label',label));if(answer.title&&answer.title!=='Answer from your books')draft.append(node('h4','',answer.title));
     for(const section of answer.sections){if(section.heading)draft.append(node('h5','',section.heading));draft.append(node('p','answer-text',section.text));
-      const citations=node('div','answer-citations');for(const id of section.sourceIds){const source=answer.sources.find(s=>s.id===id);if(!source)continue;citations.append(button(`[${id}] ${source.bookName||'Source'}`,()=>{const passage=findAnswerPassage(result,source);if(passage)viewSource(passage,null,result);}));}if(citations.childNodes.length)draft.append(citations);
+      const citations=node('div','answer-citations');for(const id of section.sourceIds){const source=answer.sources.find(s=>s.id===id);if(!source)continue;const reference=citationPresentation(source,state.books),link=button(reference.label,()=>{const passage=findAnswerPassage(result,source);if(passage)viewSource(passage,null,result);},'citation-link');link.title=reference.description;link.setAttribute('aria-label',`Open ${reference.description}`);citations.append(link);}if(citations.childNodes.length){citations.setAttribute('aria-label','Source pages for this paragraph');draft.append(citations);}
     }
-    for(const gap of answer.missingDetails||[])draft.append(node('p','coverage-note',gap));
+    if(answer.sources.length){const sourceBooks=node('details','reference-library');sourceBooks.append(node('summary','','Source book details'));const seen=new Set();for(const source of answer.sources){const key=source.bookId||source.bookName;if(seen.has(key))continue;seen.add(key);const number=state.books.findIndex(b=>b.id===source.bookId)+1;sourceBooks.append(node('p','',`${number?`Book ${number} · `:''}${source.bookName||'Uploaded textbook'}`));}draft.append(sourceBooks);}
     draft.append(node('p','answer-model',`${answer.sections.reduce((n,s)=>n+wordCount(s.text),0)} words · ${answer.mode==='extractive'?'assembled on your device':'review the source before using'}`));
     actions.append(button('Copy answer',async()=>{try{const text=[label,answer.title,...answer.sections.map(s=>`${s.heading?s.heading+'\n':''}${s.text}${s.sourceIds.length?' ['+s.sourceIds.join(', ')+']':''}`),...(answer.missingDetails||[]),...answer.sources.map(s=>`[${s.id}] ${s.pages.map(pageName).join(' / ')}`)].join('\n\n');await navigator.clipboard.writeText(text);message('Answer copied with its source references.');}catch{message('Copy is unavailable here. Select the answer text to copy it.',true);}}));
     if(result.explanation)actions.append(button('Use book answer',()=>{delete result.explanation;renderResults();}));area.append(draft);
   }
-  area.append(actions,node('p','explanation-help',!MANAGED_AI_ENDPOINT&&!apiKey?'Book answers need no account, key or download. Shared AI is currently unavailable.':`AI aims for about ${targetWords()} words. It sends the question and selected text to ${apiKey?'OpenRouter':'our AI service'} when you click; your full PDFs stay here.`));card.append(area);
+  const notes=coverageNotes(answer,result);if(notes.length){const review=node('aside','coverage-review');review.setAttribute('aria-label','Answer coverage');review.append(node('h5','','Check before using'));const list=node('ul');for(const note of notes)list.append(node('li','',note));review.append(list);area.append(review);}
+  area.append(actions,node('p','explanation-help',!MANAGED_AI_ENDPOINT&&!apiKey?'Book answers need no account, key or download. Shared AI is currently unavailable.':`Optional AI · about ${targetWords()} words. Clicking sends this question and selected text to ${apiKey?'OpenRouter':'our AI service'}.`));card.append(area);
 }
 async function renderResults(){
   for(const r of state.results)r.bookAnswer=compileBookAnswer(r,{targetWords:targetWords()});
@@ -205,7 +214,7 @@ async function renderResults(){
   const card=node('article','question-card'),head=node('div','question-header');head.append(node('span','q-number',`Q${i+1}`),node('h3','',result.question.text));
   card.append(head,node('span',`result-status ${result.status}`,result.status==='no-match'?'No match found in open books':!result.passages.length?'No passages selected':`${result.status==='partial'?'Partial matches':'Source matches'} · ${result.passages.reduce((s,p)=>s+wordCount(p.text),0)} source words`));renderExplanation(card,result);
   if(result.bookSummaries?.length>1){const notes=node('details','book-coverage');notes.append(node('summary','',`Searched ${result.bookSummaries.length} books`));for(const b of result.bookSummaries)notes.append(node('p','',`${b.name}: ${b.status==='no-match'?'no reliable passage':b.status==='partial'?'partial matches':'source matches'}`));card.append(notes);}
-  const evidence=node('details','evidence-details');if(result.passages.length){evidence.append(node('summary','',`Book passages and screenshots (${result.passages.length})`));card.append(evidence);}
+  const evidence=node('details','evidence-details');if(result.passages.length){const summary=node('summary');summary.append(node('span','drawer-number','01'),node('span','drawer-title','Passages & screenshots'),node('span','drawer-count',String(result.passages.length)),node('span','drawer-toggle','+'));evidence.append(summary);card.append(evidence);}
   for(const passage of result.passages){
     const wrap=node('div','passage');wrap.append(node('blockquote','',passage.text));const meta=node('div','passage-meta',passage.segments.map(s=>pageName(s.page)).join(' / '));if(passage.segments.some(s=>s.method==='ocr'))meta.append(node('span','','OCR · check the image'));wrap.append(meta);
     const actions=node('div','passage-actions');actions.append(button('View in book',()=>viewSource(passage,null,result)),button('More context',async()=>{if(state.activeJob)return;const book=getBook(library,passage.bookId||passage.segments[0]?.page.bookId),{expandPassage,buildIndex}=await import('./search.js');const full=expandPassage(buildIndex(book.spans),passage);Object.assign(passage,full,{originId:full.id});delete result.explanation;renderResults();}),button('Remove',()=>{controller.removePassage(result.question.id,passage.id);renderResults();},'text-button remove-button'));wrap.append(actions);evidence.append(wrap);
@@ -216,12 +225,12 @@ async function renderResults(){
       }catch{loading.textContent='Preview unavailable. Use View in book to check the page.';loaded=false;}
     });
   }
-  for(const note of result.coverageNotes||[])card.append(node('p','coverage-note',note));
   if(state.books.length){
-    const figures=node('div','figure-area');figures.append(node('h4','','Diagrams & tables'),node('p','figure-help','Review each crop before including it. Resize the selection or capture the full page to keep labels and rows.'));
+    const figures=node('div','figure-area'),heading=node('div','figure-heading');heading.append(node('span','drawer-number','02'),node('h4','','Diagrams & tables'));figures.append(heading,node('p','figure-help','Choose a diagram, graph or table. Check its crop before adding it to your PDF.'));
     const addFigures=list=>{for(const figure of list){const row=node('div','figure-row'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=figure.confirmed;checkbox.disabled=!!state.activeJob;checkbox.id=`figure-${figure.id}`;checkbox.addEventListener('change',()=>{if(checkbox.checked&&!figure.confirmed){checkbox.checked=false;viewSource(null,figure,result);}else{figure.confirmed=checkbox.checked;renderResults();}});
         const label=node('label','',`${figure.caption} · ${pageName(figure.page)}`);label.htmlFor=checkbox.id;label.append(node('span',`figure-state${figure.confirmed?' included':''}`,figure.confirmed?'Included in PDF':'Review crop'));row.append(checkbox,label,button('View / crop',()=>viewSource(null,figure,result)));figures.append(row);}
-      figures.append(button('Choose a figure or table from source',()=>viewSource(null,null,result)));};
+      if(!list.length){figures.classList.add('no-figures');figures.append(node('p','figure-empty-note','No suggested figures for this question. You can capture one directly from a book.'));}
+      figures.append(button('Capture from book ↗',()=>viewSource(null,null,result),'secondary capture-button'));};
     if(!result.figures.length)import('./figures.js').then(({suggestFigures})=>{if(revision!==resultRevision)return;result.figures=suggestFigures(library,result);addFigures(result.figures);}).catch(()=>{if(revision===resultRevision)addFigures([]);});else addFigures(result.figures);card.append(figures);
   }
   host.append(card);updateControls();

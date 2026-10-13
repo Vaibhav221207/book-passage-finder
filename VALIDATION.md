@@ -1,5 +1,12 @@
 # Verification record
 
+## Workspace component polish — 13 October 2026
+
+- Reworked the reported loaded states: ruled chapter navigation hides zero badges; progress uses a compact status panel and distinguishes measured counts from unmeasured search/AI work; reading-list entries pair actual cover previews with readable filenames and adjacent page tools/continuation.
+- Source buttons now show stable source IDs, book ordinals when needed, and printed-page or explicit physical-PDF-page labels. Full references remain in accessible labels, tooltips, source book details and source viewing. Coverage notes from retrieval and answer assembly are combined once without removing distinct missing details. Evidence and figure controls have separate numbered sections.
+- Eleven new presentation tests passed after failing before implementation. All 224 tests pass, JavaScript syntax and CSS parsing pass, and clean build/distribution checks pass with 265 assets / 52.5 MB. No textbook, assignment or private evaluation data is included.
+- Independent integration review found a clipped keyboard focus outline on the book selector; an inset outline corrects it. Production visual checks follow in the output validation report. Backend, answer model and retrieval logic are unchanged.
+
 ## Guided workspace redesign — 13 October 2026
 
 - Replaced the permanent materials/sidebar/notebook layout with separate Books, Questions and Answers views. The opening screen combines the upload action with a responsive book sculpture; loaded books show locally rendered first-page previews. Questions have a large editor and answer settings. Answers use a vertical assignment index beside the reading surface, with a compact picker on mobile and in Focus view.

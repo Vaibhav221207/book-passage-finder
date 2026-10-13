@@ -7,21 +7,21 @@
   <meta name="theme-color" content="#f2f2f0">
   <title>Book Passage Finder — Big books. Small deadlines.</title>
   <link rel="stylesheet" href="./src/styles.css">
-  <link rel="stylesheet" href="./src/workspace.css?v=20261013-1">
+  <link rel="stylesheet" href="./src/workspace.css?v=20261013-3">
 </head>
 <body class="passage-app" data-view="sources">
   <a class="skip-link" href="#workspace">Skip to workspace</a>
   <header class="app-header">
     <a class="app-brand" href="./" aria-label="Book Passage Finder home"><span class="brand-brackets" aria-hidden="true">[b]</span><span>book passage<br><strong>finder.</strong></span></a>
     <nav class="stage-nav" aria-label="Your workspace">
-      <button type="button" data-view-target="sources" aria-current="step"><span class="stage-number">01</span> Books <span id="source-count" class="stage-count">0</span></button>
-      <button type="button" data-view-target="questions"><span class="stage-number">02</span> Questions <span id="step-question-count" class="stage-count">0</span></button>
-      <button type="button" data-view-target="answers" disabled><span class="stage-number">03</span> Answers <span id="answer-count" class="stage-count">0</span></button>
+      <button type="button" data-view-target="sources" aria-current="step"><span class="stage-number">01</span> Books <span id="source-count" class="stage-count" hidden>0</span></button>
+      <button type="button" data-view-target="questions"><span class="stage-number">02</span> Questions <span id="step-question-count" class="stage-count" hidden>0</span></button>
+      <button type="button" data-view-target="answers" disabled><span class="stage-number">03</span> Answers <span id="answer-count" class="stage-count" hidden>0</span></button>
     </nav>
     <span class="header-note"><i aria-hidden="true"></i> Free to start.<br>No student account.</span>
   </header>
   <div class="work-feedback" aria-label="Workspace status">
-    <div class="progress-area" id="progress-area" hidden><div><span id="progress-label">Reading book…</span><button id="cancel" class="text-button" type="button">Cancel</button></div><progress id="progress" max="100" value="0"></progress></div>
+    <div class="progress-area" id="progress-area" hidden><span class="progress-mark" aria-hidden="true">↗</span><div class="progress-copy"><span id="progress-label" role="status" aria-live="polite">Getting things ready</span><span id="progress-detail">Working on your device</span></div><button id="cancel" class="text-button" type="button">Cancel</button><progress id="progress" max="100" aria-labelledby="progress-label" aria-describedby="progress-detail"></progress></div>
     <p id="message" class="message" role="status" aria-live="polite" hidden></p>
   </div>
   <main id="workspace">
@@ -46,22 +46,22 @@
           </label>
         </div>
         <div id="library" class="library" hidden>
-          <div class="library-heading"><div><p class="eyebrow">YOUR READING LIST</p><h2 id="library-heading" tabindex="-1">Your books are in.</h2></div><p id="library-summary"></p></div>
+          <div class="library-heading"><div><p class="eyebrow">YOUR READING LIST</p><h2 id="library-heading" tabindex="-1">On your desk.</h2></div><p id="library-summary"></p></div>
           <div id="library-books" class="book-shelf"></div>
-          <p class="shelf-note">Every open book is searched. Select a cover to choose its page and scan tools.</p>
+          <p class="shelf-note">All these books are searched together. Select one to use its page tools.</p>
         </div>
       </div>
       <div class="source-bottom">
+        <div class="desk-next"><span class="eyebrow">UP NEXT / 02</span><h2>Books, meet<br>questions.</h2><p>Your reading list is ready.<br>Bring in the assignment.</p></div>
+        <button id="continue-questions" class="primary next-stage" type="button" data-view-target="questions"><span>Add your questions</span><span aria-hidden="true">↗</span></button>
         <details class="advanced-options" id="book-options">
-          <summary>Book tools &amp; saved copies <span aria-hidden="true">+</span></summary>
+          <summary>Page tools &amp; saved books <span aria-hidden="true">+</span></summary>
           <label for="active-book">Book for viewing and page tools</label><select id="active-book"></select>
           <div class="book-tools" id="book-tools" hidden><button id="save-book" class="text-button" type="button">Save on this device</button><button id="page-label" class="text-button" type="button">Correct page label</button></div>
           <div class="saved-row" id="saved-row" hidden><label for="saved-books">Saved on this device</label><select id="saved-books"><option value="">Choose a saved book</option></select><button id="delete-saved" class="text-button remove-button" type="button">Delete saved copy</button></div>
           <details id="ocr-tools"><summary>Recognize a scanned PDF</summary><p id="ocr-description">OCR needs an English language download. Start with a few pages.</p><label for="ocr-range">PDF pages to recognize</label><div class="inline-input"><input id="ocr-range" placeholder="e.g. 20-25" inputmode="text"><button id="run-ocr" type="button" class="secondary" disabled>Recognize</button></div><small>Use physical PDF page numbers. Start with a small range.</small></details>
         </details>
-        <button id="continue-questions" class="primary next-stage" type="button" data-view-target="questions"><span>Next, the questions</span><span aria-hidden="true">↗</span></button>
       </div>
-      <div class="source-caption"><span>01 — Books in.</span><span>02 — Questions ready.</span><span>03 — Sources found.</span><b>A shorter route through the reading.</b></div>
     </section>
     <section id="view-questions" class="workspace-view questions-view" data-workspace-view="questions" aria-labelledby="questions-heading" hidden>
       <div class="stage-title"><div><p class="eyebrow"><span class="section-index">02 /</span> THE ASSIGNMENT</p><h1 id="questions-heading" tabindex="-1">What are we<br><span>working on?</span></h1></div><p>Paste the questions or upload<br>your assignment PDF or photo.<br>You can edit everything before searching.</p></div>
@@ -91,9 +91,9 @@
         <div id="results" aria-live="polite"></div>
       </div>
     </section>
-    <footer class="app-footer"><span>Less page-flipping. More getting it.</span><p>Books stay on your device. Optional AI sends selected text to a cloud service.<br>Page references follow the edition you upload.</p></footer>
+    <footer class="app-footer"><span><i aria-hidden="true"></i> Your books stay on your device.</span><p>Optional AI uses only the question and selected passages.</p></footer>
   </main>
   <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-head"><div><p class="eyebrow">BACK TO THE SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="crop-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div></dialog>
-  <script type="module" src="./src/main.js?v=20261013-1"></script>
+  <script type="module" src="./src/main.js?v=20261013-3"></script>
 </body>
 </html>
