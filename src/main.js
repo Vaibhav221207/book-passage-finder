@@ -10,16 +10,31 @@ import {findAnswerPassage} from './answer-source.js';
 import {compileBookAnswer} from './book-answer.js';
 import {requestManagedExplanation,getAnonymousClientId} from './managed-ai.js';
 import {MANAGED_AI_ENDPOINT} from './service-config.js';
-import {questionDestination,droppedBooks} from './studio.js';
+import {questionDestination,droppedBooks} from './studio.js?v=20261013-2';
+import {chooseWorkspaceView} from './workspace-flow.js';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
+const bookCovers=new WeakMap();
 let worker,libraryId,abortController,resultRevision=0,apiKey='',sourceOpening=false,aiAllowance;
 const context=()=>({books:state.books});
 const targetWords=()=>Number($('answer-length').value)||300;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
 function button(text,fn,className='text-button'){const b=node('button',className,text);b.type='button';b.disabled=!!state.activeJob;b.addEventListener('click',fn);return b;}
 function message(text,error=false){$('message').textContent=text;$('message').hidden=!text;$('message').className=`message${error?' error':''}`;}
+function showWorkspace(requested,{focus=false,animate=false}={}){
+  const previous=document.body.dataset.view||'sources',view=chooseWorkspaceView(requested,{current:previous,books:state.books.length,results:state.results.length,busy:!!state.activeJob});
+  document.body.dataset.view=view;
+  for(const panel of document.querySelectorAll('[data-workspace-view]'))panel.hidden=panel.dataset.workspaceView!==view;
+  for(const control of document.querySelectorAll('[data-view-target]')){
+    control.disabled=!!state.activeJob||(control.dataset.viewTarget==='answers'&&!state.results.length);
+    if(control.closest('.stage-nav')){if(control.dataset.viewTarget===view)control.setAttribute('aria-current','step');else control.removeAttribute('aria-current');}
+  }
+  if(view!==previous){setFocusMode(false);if(animate&&!matchMedia('(prefers-reduced-motion: reduce)').matches)$(`view-${view}`).animate([{opacity:.4,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],{duration:190,easing:'cubic-bezier(.2,.8,.2,1)'});}
+  if(focus){const heading=view==='answers'?$('results-heading'):view==='questions'?$('questions-heading'):state.books.length?$('library-heading'):$('sources-heading');heading?.focus({preventScroll:true});$('workspace').scrollIntoView({behavior:'instant',block:'start'});}
+  return view;
+}
+for(const control of document.querySelectorAll('[data-view-target]'))control.addEventListener('click',e=>showWorkspace(control.dataset.viewTarget,{focus:true,animate:e.detail>0}));
 function updateControls(){
   const busy=!!state.activeJob;state.questions=parseQuestions($('questions').value);
   document.body.classList.toggle('is-busy',busy);
@@ -34,13 +49,16 @@ function updateControls(){
   $('question-select').disabled=busy;
   $('question-previous').disabled=busy||state.activeQuestionIndex===0;
   $('question-next').disabled=busy||state.activeQuestionIndex>=state.results.length-1;
-  const n=state.questions.length;$('question-count').textContent=n?`${n} question${n===1?'':'s'} detected`:'No questions yet';serviceStatus();
+  const n=state.questions.length;$('question-count').textContent=n?`${n} question${n===1?'':'s'} detected`:'No questions yet';
+  $('source-count').textContent=String(state.books.length);$('step-question-count').textContent=String(n);$('answer-count').textContent=String(state.results.length);
+  $('question-source-summary').textContent=state.books.length?`Searching ${state.books.length} book${state.books.length===1?'':'s'} · ${state.books.reduce((sum,b)=>sum+b.pageCount,0)} pages. Each answer links back to its sources.`:'Add a textbook to find source-backed answers.';
+  showWorkspace();serviceStatus();
 }
 function progress(p){$('progress-label').textContent=`${p.phase} · ${p.completed} / ${p.total}`;$('progress').max=p.total||100;$('progress').value=p.completed||0;}
 async function operate(task){
   abortController?.abort();const localAbort=new AbortController();abortController=localAbort;const job=controller.start();updateControls();message('');
-  try{const patch=await task(localAbort.signal,job);if(controller.finish(job,patch||{}))updateControls();}
-  catch(e){if(state.activeJob===job){controller.finish(job);message(e.name==='AbortError'?'Cancelled. You can try again.':e.message,e.name!=='AbortError');updateControls();}}
+  try{const patch=await task(localAbort.signal,job);if(controller.finish(job,patch||{})){updateControls();return true;}return false;}
+  catch(e){if(state.activeJob===job){controller.finish(job);message(e.name==='AbortError'?'Cancelled. You can try again.':e.message,e.name!=='AbortError');updateControls();}return false;}
 }
 function workerCall(type,payload,signal,jobId=crypto.randomUUID(),activeWorker=worker){
   return new Promise((resolve,reject)=>{
@@ -58,6 +76,7 @@ async function indexLibrary(books,signal){
   catch(e){candidate.terminate();throw e;}
 }
 function renderLibrary(){
+  document.body.classList.toggle('has-books',state.books.length>0);
   $('library').hidden=!state.books.length;$('active-book').replaceChildren(...state.books.map(b=>new Option(b.filename,b.id)));$('active-book').value=state.activeBookId||'';
   const host=$('library-books');host.replaceChildren();
   for(const [i,book] of state.books.entries()){
@@ -65,17 +84,22 @@ function renderLibrary(){
     const select=button('',()=>{controller.selectBook(book.id);renderLibrary();host.querySelector(`[data-book-id="${book.id}"] .book-select`)?.focus({preventScroll:true});},'book-select');select.setAttribute('aria-pressed',String(active));select.setAttribute('aria-label',`Use ${book.filename} for source viewing and book tools`);
     const spine=node('span','book-spine',String(i+1).padStart(2,'0'));spine.setAttribute('aria-hidden','true');
     const info=node('span','book-info'),name=node('span','book-name',book.filename.replace(/\.pdf$/i,'').replace(/_/g,' '));name.title=book.filename;
-    info.append(name,node('span','book-meta',`${book.pageCount} pages${active?' · Selected':''}`));select.append(spine,info);
+    const cover=node('span','book-cover'),fallback=node('span','cover-fallback');fallback.append(node('small','',`SOURCE ${String(i+1).padStart(2,'0')}`),node('b','',name.textContent),node('small','','PDF TEXTBOOK'));cover.append(fallback,spine);
+    info.append(name,node('span','book-meta',`${book.pageCount} page${book.pageCount===1?'':'s'}${active?' · Selected':''}`));select.append(cover,info);
+    if(!bookCovers.has(book)){const page=book.pages[0],scale=Math.min(1,350/Math.max(page.width,page.height));bookCovers.set(book,book.renderPage(1,scale).then(canvas=>canvas.toDataURL('image/webp',.8)).catch(()=>null));}
+    bookCovers.get(book).then(url=>{if(!url||!cover.isConnected||!state.books.includes(book))return;const image=node('img');image.alt='';image.decoding='async';image.src=url;image.addEventListener('load',()=>{if(cover.isConnected)cover.classList.add('has-preview');},{once:true});cover.append(image);});
     const remove=button('×',()=>removeBook(book.id),'book-remove');remove.setAttribute('aria-label',`Remove ${book.filename}`);remove.title='Remove book';row.append(select,remove);host.append(row);
   }
   const total=state.books.reduce((sum,b)=>sum+b.pageCount,0);
-  $('book-title').textContent=state.books.length?`${state.books.length} book${state.books.length===1?'':'s'} open`:'Add your textbooks';
-  $('book-detail').textContent=state.books.length?`${total} pages · ready to search`:'Select one or more PDFs from your device';
+  $('book-title').textContent=state.books.length?'Room for another book?':'Drop your textbooks here';
+  $('book-detail').textContent=state.books.length?'Add lecture notes or another textbook.':'One PDF or a whole reading list.';
+  $('library-summary').textContent=`${state.books.length} book${state.books.length===1?'':'s'} · ${total} page${total===1?'':'s'} to search`;
   $('ocr-description').textContent=state.session?.missingTextPages.length?`${state.session.missingTextPages.length} pages in this book have little readable text. Recognize a selected range.`:'Choose the book above, then recognize pages whose text does not extract correctly. OCR downloads English language data.';
   updateControls();
 }
 async function addBooks(selected){
   if(!selected.length||state.activeJob)return;
+  showWorkspace('sources');
   await operate(async(signal,job)=>{
     const failures=[];
     for(const file of selected){
@@ -98,12 +122,12 @@ $('book-file').addEventListener('change',e=>{const selected=[...e.target.files];
 $('active-book').addEventListener('change',e=>{controller.selectBook(e.target.value);renderLibrary();});
 function setFocusMode(enabled){
   const active=!!enabled&&!!state.results.length&&!state.activeJob;document.body.classList.toggle('focus-mode',active);
-  const toggle=$('focus-toggle');if(toggle){toggle.setAttribute('aria-pressed',String(active));toggle.textContent=active?'Back to desk':'Focus view';}
+  const toggle=$('focus-toggle');if(toggle){toggle.setAttribute('aria-pressed',String(active));toggle.textContent=active?'Exit focus':'Focus view';}
 }
 $('focus-toggle')?.addEventListener('click',()=>{setFocusMode(!document.body.classList.contains('focus-mode'));if(document.body.classList.contains('focus-mode'))$('focus-toggle').closest('.results-top').scrollIntoView({behavior:'instant',block:'start'});});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('focus-mode')&&!document.querySelector('dialog[open]')){setFocusMode(false);$('focus-toggle')?.focus();}});
-$('empty-add-book')?.addEventListener('click',()=>$('book-file').click());
-$('empty-add-questions')?.addEventListener('click',()=>{$('questions').scrollIntoView({behavior:'instant',block:'center'});$('questions').focus();});
+$('empty-add-book')?.addEventListener('click',()=>{showWorkspace('sources');$('book-file').click();});
+$('empty-add-questions')?.addEventListener('click',()=>{showWorkspace('questions');$('questions').focus();});
 let dragDepth=0;const dropzone=$('book-dropzone');
 const fileDrag=e=>Array.from(e.dataTransfer?.types||[]).includes('Files');
 dropzone?.addEventListener('dragenter',e=>{if(!fileDrag(e))return;e.preventDefault();dragDepth++;if(!state.activeJob)dropzone.classList.add('is-dragging');});
@@ -117,11 +141,11 @@ $('answer-length').addEventListener('change',()=>{for(const r of state.results)d
 $('question-select').addEventListener('change',e=>{controller.selectQuestion(Number(e.target.value));renderResults();});
 for(const [id,delta]of [['question-previous',-1],['question-next',1]])$(id).addEventListener('click',()=>{controller.moveQuestion(delta);renderResults();$('question-navigation').scrollIntoView({behavior:'instant',block:'start'});});
 $('cancel').addEventListener('click',()=>{abortController?.abort();controller.cancel();message('Cancelled. Your completed selections are kept.');updateControls();});
-$('assignment-file').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;await operate(async signal=>{const qs=await readAssignment(file,{signal,onProgress:progress});abortIfNeeded(signal);$('questions').value=qs.map((q,i)=>`${i+1}. ${q.text}`).join('\n\n');message('Questions imported. Check and edit the text before searching.');return {questions:qs,results:[]};});renderResults();});
+$('assignment-file').addEventListener('change',async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;const completed=await operate(async signal=>{const qs=await readAssignment(file,{signal,onProgress:progress});abortIfNeeded(signal);$('questions').value=qs.map((q,i)=>`${i+1}. ${q.text}`).join('\n\n');message('Questions imported. Check and edit the text before searching.');return {questions:qs,results:[]};});renderResults();if(completed)showWorkspace('questions',{focus:true});});
 $('find').addEventListener('click',async()=>{
   const questions=parseQuestions($('questions').value),library=context();
-  await operate(async(signal,job)=>{progress({completed:0,total:questions.length,phase:'Finding passages'});const response=await workerCall('search',{libraryId,questions,options:{wordBudget:targetWords()}},signal,job);return {results:resolveResultReferences(library,response.payload),questions};});
-  renderResults();if(state.results.length)$('results-heading').closest('.results-top').scrollIntoView({behavior:'instant',block:'start'});
+  const completed=await operate(async(signal,job)=>{progress({completed:0,total:questions.length,phase:'Finding passages'});const response=await workerCall('search',{libraryId,questions,options:{wordBudget:targetWords()}},signal,job);return {results:resolveResultReferences(library,response.payload),questions};});
+  renderResults();if(completed&&state.results.length)showWorkspace('answers',{focus:true});
 });
 async function viewSource(passage,figure,result){
   if(state.activeJob||sourceOpening||$('source-dialog').open)return;sourceOpening=true;

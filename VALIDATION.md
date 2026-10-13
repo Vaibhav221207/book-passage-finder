@@ -1,5 +1,15 @@
 # Verification record
 
+## Guided workspace redesign — 13 October 2026
+
+- Replaced the permanent materials/sidebar/notebook layout with separate Books, Questions and Answers views. The opening screen combines the upload action with a responsive book sculpture; loaded books show locally rendered first-page previews. Questions have a large editor and answer settings. Answers use a vertical assignment index beside the reading surface, with a compact picker on mobile and in Focus view.
+- Stage navigation preserves entered questions and selected results until their inputs change. Successful assignment import opens the editable Questions view; successful searches open Answers including all-no-match sets. Busy jobs lock stage changes while global progress and Cancel remain available. Invalidated Answers returns to a usable input view. Delayed book-cover previews check DOM connection and current book membership before appearing.
+- Six new stage-transition regressions and one vertical-keyboard regression were observed failing before implementation. All 213 automated tests pass. Syntax, CSS parsing, clean build and distribution checks pass: 264 assets / 52.5 MB. All previous HTML IDs are retained, with 69 unique IDs and no duplicates.
+- Independent review identified misleading assignment-drop wording and missing Up/Down support in the vertical question list. The wording now says upload, and Up/Down joins the existing Left/Right and Home/End navigation. Page transitions skip keyboard-initiated navigation and reduced-motion users; repeated question switching remains immediate.
+- Primary inspiration: WeTransfer's direct file intake (https://wetransfer.com/resources/drag-drop-file-upload/design-files), Kinopio's recognizable content objects (https://kinopio.club/) and Cosmos's use of collected content (https://www.cosmos.so/). The layout and interactions are our own adaptation for textbook study.
+
+The backend and answer-generation model are unchanged. Final publication and production visual checks are recorded in the output validation report.
+
 ## Studio desk redesign — 13 October 2026
 
 - The user chose a Studio desk direction. The workspace now has a charcoal bookshelf and masthead, lime actions and question bookmarks, and a paper notebook reading surface. Display typography uses the self-hosted, OFL-licensed Space Grotesk font; answer text remains 18 px. Source screenshots, multiple books, AI controls and PDF exports retain their existing workflows.

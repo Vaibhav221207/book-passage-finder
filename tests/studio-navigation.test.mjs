@@ -21,3 +21,10 @@ test('book drops accept PDF files and preserve order while rejecting images and 
   assert.deepEqual(studio.droppedBooks(undefined),[]);
   assert.deepEqual(studio.droppedBooks(['https://example.com/book.pdf',{},null]),[]);
 });
+
+test('vertical question navigation follows the displayed list and wraps at both ends',()=>{
+  assert.equal(studio.questionDestination(99,49,'ArrowDown'),50);
+  assert.equal(studio.questionDestination(99,49,'ArrowUp'),48);
+  assert.equal(studio.questionDestination(99,98,'ArrowDown'),0);
+  assert.equal(studio.questionDestination(99,0,'ArrowUp'),98);
+});
