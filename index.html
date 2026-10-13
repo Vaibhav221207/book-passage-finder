@@ -7,7 +7,9 @@
   <meta name="theme-color" content="#f2f2f0">
   <title>Book Passage Finder — Big books. Small deadlines.</title>
   <link rel="stylesheet" href="./src/styles.css">
-  <link rel="stylesheet" href="./src/workspace.css?v=20261013-3">
+  <link rel="stylesheet" href="./src/workspace.css?v=20261013-4">
+  <link rel="stylesheet" href="./src/source-tray.css?v=20261013-4">
+  <link rel="stylesheet" href="./src/feedback.css?v=20261013-4">
 </head>
 <body class="passage-app" data-view="sources">
   <a class="skip-link" href="#workspace">Skip to workspace</a>
@@ -22,7 +24,7 @@
   </header>
   <div class="work-feedback" aria-label="Workspace status">
     <div class="progress-area" id="progress-area" hidden><span class="progress-mark" aria-hidden="true">↗</span><div class="progress-copy"><span id="progress-label" role="status" aria-live="polite">Getting things ready</span><span id="progress-detail">Working on your device</span></div><button id="cancel" class="text-button" type="button">Cancel</button><progress id="progress" max="100" aria-labelledby="progress-label" aria-describedby="progress-detail"></progress></div>
-    <p id="message" class="message" role="status" aria-live="polite" hidden></p>
+    <div id="message-line" class="message-line" hidden><p id="message" class="message" role="status" aria-live="polite" hidden></p><button id="dismiss-message" type="button" aria-label="Dismiss status message">×</button></div>
   </div>
   <main id="workspace">
     <section id="view-sources" class="workspace-view source-view" data-workspace-view="sources" aria-labelledby="sources-heading">
@@ -94,6 +96,6 @@
     <footer class="app-footer"><span><i aria-hidden="true"></i> Your books stay on your device.</span><p>Optional AI uses only the question and selected passages.</p></footer>
   </main>
   <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-head"><div><p class="eyebrow">BACK TO THE SOURCE</p><h2 id="source-title">View in book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="crop-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div></dialog>
-  <script type="module" src="./src/main.js?v=20261013-3"></script>
+  <script type="module" src="./src/main.js?v=20261013-4"></script>
 </body>
 </html>

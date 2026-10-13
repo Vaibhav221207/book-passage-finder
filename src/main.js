@@ -17,12 +17,18 @@ import {citationPresentation,coverageNotes,progressPresentation} from './present
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
 const bookCovers=new WeakMap();
-let worker,libraryId,abortController,resultRevision=0,apiKey='',sourceOpening=false,aiAllowance;
+const sourcePanels=new WeakMap(),reviewPanels=new WeakMap();
+let worker,libraryId,abortController,resultRevision=0,apiKey='',sourceOpening=false,aiAllowance,messageTimer;
 const context=()=>({books:state.books});
 const targetWords=()=>Number($('answer-length').value)||300;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
 function button(text,fn,className='text-button'){const b=node('button',className,text);b.type='button';b.disabled=!!state.activeJob;b.addEventListener('click',fn);return b;}
-function message(text,error=false){$('message').textContent=text;$('message').hidden=!text;$('message').className=`message${error?' error':''}`;}
+function message(text,error=false){
+  clearTimeout(messageTimer);$('message').textContent=text;$('message').hidden=!text;$('message-line').hidden=!text;
+  $('message').className=`message${error?' error':''}`;
+  if(text&&!error)messageTimer=setTimeout(()=>{if(!$('message-line').contains(document.activeElement))message('');},7000);
+}
+$('dismiss-message').addEventListener('click',()=>message(''));
 function showWorkspace(requested,{focus=false,animate=false}={}){
   const previous=document.body.dataset.view||'sources',view=chooseWorkspaceView(requested,{current:previous,books:state.books.length,results:state.results.length,busy:!!state.activeJob});
   document.body.dataset.view=view;
@@ -157,9 +163,12 @@ $('find').addEventListener('click',async()=>{
 });
 async function viewSource(passage,figure,result){
   if(state.activeJob||sourceOpening||$('source-dialog').open)return;sourceOpening=true;
+  const opener=document.activeElement;let confirmed=false,restoreFocus;
   try{const {openSourceDialog}=await import('./source-view.js');if(state.activeJob||!state.results.includes(result))return;
-    await openSourceDialog(context(),{passage,figure,bookId:state.activeBookId,onConfirm:selection=>{if(!state.results.includes(result))return;if(figure)Object.assign(figure,selection,{confirmed:true});else result.figures.push({...selection,id:crypto.randomUUID(),confirmed:true});renderResults();}});
-  }catch(e){message(`Unable to open the source. ${e.message}`,true);}finally{sourceOpening=false;}
+    restoreFocus=()=>{if(confirmed&&controller.currentResult()===result)$('results').querySelector('[data-source-tool="figures"]')?.focus({preventScroll:true});else if(opener?.isConnected)opener.focus({preventScroll:true});};
+    $('source-dialog').addEventListener('close',restoreFocus,{once:true});
+    await openSourceDialog(context(),{passage,figure,bookId:state.activeBookId,onConfirm:selection=>{if(!state.results.includes(result))return;confirmed=true;if(figure)Object.assign(figure,selection,{confirmed:true});else result.figures.push({...selection,id:crypto.randomUUID(),confirmed:true});sourcePanels.set(result,'figures');renderResults();}});
+  }catch(e){if(restoreFocus)$('source-dialog').removeEventListener('close',restoreFocus);message(`Unable to open the source. ${e.message}`,true);}finally{sourceOpening=false;}
 }
 function keyStatus(){
   $('ai-connection').textContent=apiKey?'Key ready for this tab. Free requests only.':'Optional. Book search works without a key.';
@@ -196,12 +205,11 @@ function renderExplanation(card,result){
     for(const section of answer.sections){if(section.heading)draft.append(node('h5','',section.heading));draft.append(node('p','answer-text',section.text));
       const citations=node('div','answer-citations');for(const id of section.sourceIds){const source=answer.sources.find(s=>s.id===id);if(!source)continue;const reference=citationPresentation(source,state.books),link=button(reference.label,()=>{const passage=findAnswerPassage(result,source);if(passage)viewSource(passage,null,result);},'citation-link');link.title=reference.description;link.setAttribute('aria-label',`Open ${reference.description}`);citations.append(link);}if(citations.childNodes.length){citations.setAttribute('aria-label','Source pages for this paragraph');draft.append(citations);}
     }
-    if(answer.sources.length){const sourceBooks=node('details','reference-library');sourceBooks.append(node('summary','','Source book details'));const seen=new Set();for(const source of answer.sources){const key=source.bookId||source.bookName;if(seen.has(key))continue;seen.add(key);const number=state.books.findIndex(b=>b.id===source.bookId)+1;sourceBooks.append(node('p','',`${number?`Book ${number} · `:''}${source.bookName||'Uploaded textbook'}`));}draft.append(sourceBooks);}
     draft.append(node('p','answer-model',`${answer.sections.reduce((n,s)=>n+wordCount(s.text),0)} words · ${answer.mode==='extractive'?'assembled on your device':'review the source before using'}`));
     actions.append(button('Copy answer',async()=>{try{const text=[label,answer.title,...answer.sections.map(s=>`${s.heading?s.heading+'\n':''}${s.text}${s.sourceIds.length?' ['+s.sourceIds.join(', ')+']':''}`),...(answer.missingDetails||[]),...answer.sources.map(s=>`[${s.id}] ${s.pages.map(pageName).join(' / ')}`)].join('\n\n');await navigator.clipboard.writeText(text);message('Answer copied with its source references.');}catch{message('Copy is unavailable here. Select the answer text to copy it.',true);}}));
     if(result.explanation)actions.append(button('Use book answer',()=>{delete result.explanation;renderResults();}));area.append(draft);
   }
-  const notes=coverageNotes(answer,result);if(notes.length){const review=node('aside','coverage-review');review.setAttribute('aria-label','Answer coverage');review.append(node('h5','','Check before using'));const list=node('ul');for(const note of notes)list.append(node('li','',note));review.append(list);area.append(review);}
+  const notes=coverageNotes(answer,result);if(notes.length){const review=node('details','review-notes');review.open=reviewPanels.get(result)!==false;review.append(node('summary','',`Review notes · ${notes.length}`));review.addEventListener('toggle',()=>reviewPanels.set(result,review.open));const list=node('ul');for(const note of notes){const item=node('li','',note);for(const [index,book]of state.books.entries())if(note.startsWith(`${book.filename}: `)){item.textContent=`Book ${index+1} · ${note.slice(book.filename.length+2)}`;item.title=note;break;}list.append(item);}review.append(list);area.append(review);}
   area.append(actions,node('p','explanation-help',!MANAGED_AI_ENDPOINT&&!apiKey?'Book answers need no account, key or download. Shared AI is currently unavailable.':`Optional AI · about ${targetWords()} words. Clicking sends this question and selected text to ${apiKey?'OpenRouter':'our AI service'}.`));card.append(area);
 }
 async function renderResults(){
@@ -213,11 +221,30 @@ async function renderResults(){
   $('question-position').textContent=`${i+1} of ${state.results.length}`;$('question-previous').disabled=!!state.activeJob||i===0;$('question-next').disabled=!!state.activeJob||i===state.results.length-1;
   const card=node('article','question-card'),head=node('div','question-header');head.append(node('span','q-number',`Q${i+1}`),node('h3','',result.question.text));
   card.append(head,node('span',`result-status ${result.status}`,result.status==='no-match'?'No match found in open books':!result.passages.length?'No passages selected':`${result.status==='partial'?'Partial matches':'Source matches'} · ${result.passages.reduce((s,p)=>s+wordCount(p.text),0)} source words`));renderExplanation(card,result);
-  if(result.bookSummaries?.length>1){const notes=node('details','book-coverage');notes.append(node('summary','',`Searched ${result.bookSummaries.length} books`));for(const b of result.bookSummaries)notes.append(node('p','',`${b.name}: ${b.status==='no-match'?'no reliable passage':b.status==='partial'?'partial matches':'source matches'}`));card.append(notes);}
-  const evidence=node('details','evidence-details');if(result.passages.length){const summary=node('summary');summary.append(node('span','drawer-number','01'),node('span','drawer-title','Passages & screenshots'),node('span','drawer-count',String(result.passages.length)),node('span','drawer-toggle','+'));evidence.append(summary);card.append(evidence);}
+  renderSourceTools(card,result,revision);
+  host.append(card);updateControls();
+}
+function renderSourceTools(card,result,revision){
+  const library=context(),i=state.activeQuestionIndex,tray=node('section','source-tools'),rail=node('div','source-tools-rail'),controls=node('div','source-tool-buttons');
+  tray.setAttribute('aria-label','Sources for this answer');rail.append(node('span','source-tools-label','BACK IT UP'),controls);tray.append(rail);
+  const panes={},triggers={},counts={};
+  const selectPane=(key,restore=false)=>{
+    const next=restore?key:sourcePanels.get(result)===key?null:key;sourcePanels.set(result,next);
+    for(const name of Object.keys(panes)){panes[name].hidden=name!==next;triggers[name].setAttribute('aria-expanded',String(name===next));}
+  };
+  for(const [key,label]of [['passages','Passages & screenshots'],['figures','Figures & tables'],['books','Book details']]){
+    const pane=node('div',`source-tool-pane source-tool-${key}`);pane.id=`source-pane-${key}`;pane.hidden=true;
+    const trigger=button('',()=>selectPane(key),'source-tool-trigger');trigger.dataset.sourceTool=key;trigger.setAttribute('aria-controls',pane.id);trigger.setAttribute('aria-expanded','false');
+    trigger.append(node('span','source-tool-name',label));const count=node('span','source-tool-count');trigger.append(count,node('span','source-tool-arrow','↗'));
+    controls.append(trigger);tray.append(pane);panes[key]=pane;triggers[key]=trigger;counts[key]=count;
+  }
+  counts.passages.textContent=String(result.passages.length);counts.books.textContent=String(state.books.length);counts.figures.textContent='…';
+  const paneHeading=(pane,title,help)=>{const heading=node('div','source-pane-heading'),close=button('Close',()=>{selectPane(null,true);const key=Object.keys(panes).find(name=>panes[name]===pane);triggers[key]?.focus({preventScroll:true});},'source-pane-close');heading.append(node('h4','',title),close);pane.append(heading);if(help)pane.append(node('p','source-pane-help',help));};
+  const evidence=panes.passages;paneHeading(evidence,'The original passages','Compare the text, inspect its page crop, or save a screenshot.');
+  if(!result.passages.length)evidence.append(node('p','source-pane-empty',result.status==='no-match'?'No reliable passages were found for this question. Try another book or your lecture notes.':'No passages selected. Find passages again or try another source.'));
   for(const passage of result.passages){
     const wrap=node('div','passage');wrap.append(node('blockquote','',passage.text));const meta=node('div','passage-meta',passage.segments.map(s=>pageName(s.page)).join(' / '));if(passage.segments.some(s=>s.method==='ocr'))meta.append(node('span','','OCR · check the image'));wrap.append(meta);
-    const actions=node('div','passage-actions');actions.append(button('View in book',()=>viewSource(passage,null,result)),button('More context',async()=>{if(state.activeJob)return;const book=getBook(library,passage.bookId||passage.segments[0]?.page.bookId),{expandPassage,buildIndex}=await import('./search.js');const full=expandPassage(buildIndex(book.spans),passage);Object.assign(passage,full,{originId:full.id});delete result.explanation;renderResults();}),button('Remove',()=>{controller.removePassage(result.question.id,passage.id);renderResults();},'text-button remove-button'));wrap.append(actions);evidence.append(wrap);
+    const actions=node('div','passage-actions');actions.append(button('View in book',()=>viewSource(passage,null,result)),button('More context',async()=>{if(state.activeJob)return;const book=getBook(library,passage.bookId||passage.segments[0]?.page.bookId),{expandPassage,buildIndex}=await import('./search.js');const full=expandPassage(buildIndex(book.spans),passage);Object.assign(passage,full,{originId:full.id});delete result.explanation;refreshSourceTool(result,'passages');}),button('Remove',()=>{controller.removePassage(result.question.id,passage.id);refreshSourceTool(result,'passages');},'text-button remove-button'));wrap.append(actions);evidence.append(wrap);
     const preview=node('details','source-preview');preview.append(node('summary','','Show original page crop'));wrap.insertBefore(preview,actions);let loaded=false;
     preview.addEventListener('toggle',async()=>{if(!preview.open||loaded)return;loaded=true;const loading=node('p','','Loading source crop…');preview.append(loading);
       try{const {cropSpan}=await import('./source-view.js'),crops=await cropSpan(library,passage,{scale:2});if(revision!==resultRevision)return;loading.remove();
@@ -225,16 +252,22 @@ async function renderResults(){
       }catch{loading.textContent='Preview unavailable. Use View in book to check the page.';loaded=false;}
     });
   }
+  const books=panes.books;paneHeading(books,'Your source books','Book numbers match the page links beside your answer.');
+  for(const [index,book]of state.books.entries()){const summary=result.bookSummaries?.find(b=>b.id===book.id),row=node('div','source-book-row');row.append(node('span','source-book-index',`B${index+1}`),node('span','source-book-name',book.filename),node('span','source-book-status',summary?.status==='no-match'?'No reliable match':summary?.status==='partial'?'Partial matches':summary?'Source matches':'Uploaded book'));books.append(row);}
   if(state.books.length){
-    const figures=node('div','figure-area'),heading=node('div','figure-heading');heading.append(node('span','drawer-number','02'),node('h4','','Diagrams & tables'));figures.append(heading,node('p','figure-help','Choose a diagram, graph or table. Check its crop before adding it to your PDF.'));
-    const addFigures=list=>{for(const figure of list){const row=node('div','figure-row'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=figure.confirmed;checkbox.disabled=!!state.activeJob;checkbox.id=`figure-${figure.id}`;checkbox.addEventListener('change',()=>{if(checkbox.checked&&!figure.confirmed){checkbox.checked=false;viewSource(null,figure,result);}else{figure.confirmed=checkbox.checked;renderResults();}});
+    const figures=panes.figures;paneHeading(figures,'Figures, graphs & tables','Check each crop on its original page before including it in your PDF.');
+    const addFigures=list=>{for(const figure of list){const row=node('div','figure-row'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=figure.confirmed;checkbox.disabled=!!state.activeJob;checkbox.id=`figure-${figure.id}`;checkbox.addEventListener('change',()=>{if(checkbox.checked&&!figure.confirmed){checkbox.checked=false;viewSource(null,figure,result);}else{figure.confirmed=checkbox.checked;refreshSourceTool(result,'figures');}});
         const label=node('label','',`${figure.caption} · ${pageName(figure.page)}`);label.htmlFor=checkbox.id;label.append(node('span',`figure-state${figure.confirmed?' included':''}`,figure.confirmed?'Included in PDF':'Review crop'));row.append(checkbox,label,button('View / crop',()=>viewSource(null,figure,result)));figures.append(row);}
-      if(!list.length){figures.classList.add('no-figures');figures.append(node('p','figure-empty-note','No suggested figures for this question. You can capture one directly from a book.'));}
-      figures.append(button('Capture from book ↗',()=>viewSource(null,null,result),'secondary capture-button'));};
-    if(!result.figures.length)import('./figures.js').then(({suggestFigures})=>{if(revision!==resultRevision)return;result.figures=suggestFigures(library,result);addFigures(result.figures);}).catch(()=>{if(revision===resultRevision)addFigures([]);});else addFigures(result.figures);card.append(figures);
-  }
-  host.append(card);updateControls();
+      counts.figures.textContent=String(list.length);const included=list.filter(f=>f.confirmed).length;triggers.figures.setAttribute('aria-label',`Figures & tables: ${list.length} available, ${included} included in PDF`);
+      if(!list.length){figures.append(node('p','source-pane-empty','No suggested figures here. Pick a page and capture the part you need.'));}
+      figures.append(button('+ Capture from book',()=>viewSource(null,null,result),'source-capture-button'));updateControls();};
+    if(!result.figures.length)import('./figures.js').then(({suggestFigures})=>{if(revision!==resultRevision)return;result.figures=suggestFigures(library,result);addFigures(result.figures);}).catch(()=>{if(revision===resultRevision)addFigures([]);});else addFigures(result.figures);
+  }else{counts.figures.textContent='0';panes.figures.append(node('p','source-pane-empty','Add a book to capture a figure.'));}
+  tray.addEventListener('keydown',e=>{if(e.key==='Escape'&&sourcePanels.get(result)){const active=sourcePanels.get(result);selectPane(null,true);triggers[active]?.focus({preventScroll:true});e.preventDefault();}});
+  const selected=sourcePanels.get(result);if(selected&&panes[selected])selectPane(selected,true);
+  card.append(tray);
 }
+function refreshSourceTool(result,key){renderResults();if(controller.currentResult()===result)$('results').querySelector(`[data-source-tool="${key}"]`)?.focus({preventScroll:true});}
 $('run-ocr').addEventListener('click',async()=>{
   const raw=$('ocr-range').value.trim(),match=raw.match(/^(\d+)(?:\s*-\s*(\d+))?$/);if(!match){message('Enter a PDF page or range, such as 20-25.',true);return;}
   const start=+match[1],end=+(match[2]||match[1]),book=state.session;

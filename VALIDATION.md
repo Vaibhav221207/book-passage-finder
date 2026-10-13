@@ -1,5 +1,12 @@
 # Verification record
 
+## Unboxed feedback and source tools — 13 October 2026
+
+- Replaced the floating loading card and persistent success banner with an integrated workspace status line, measured counts, a thin progress rule, Cancel and dismiss controls. Routine success messages clear after seven seconds unless keyboard focus is inside the message; errors persist. Unknown-duration work uses a travelling rule with a static reduced-motion treatment.
+- Replaced stacked evidence, book coverage and figure cards with one source toolbar and one open pane at a time. Its selected pane persists per question through rerenders, source edits and crop confirmation. Figures counts update after asynchronous suggestions; available and included counts remain distinct. Book details remain available for no-match answers, and direct paragraph citations still open the original page.
+- Review notes are borderless, expanded initially, and retain distinct missing details. Long filename prefixes display as the matching book number, with the full original note in the title. Source dialog close restores focus after confirming a crop.
+- All 224 tests pass. Syntax, CSS parsing, build and distribution checks pass (267 assets / 52.5 MB). Production visual and interaction checks are recorded in the output report. This change does not alter retrieval, the AI service/model, or export data.
+
 ## Workspace component polish — 13 October 2026
 
 - Reworked the reported loaded states: ruled chapter navigation hides zero badges; progress uses a compact status panel and distinguishes measured counts from unmeasured search/AI work; reading-list entries pair actual cover previews with readable filenames and adjacent page tools/continuation.

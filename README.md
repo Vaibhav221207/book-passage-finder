@@ -8,6 +8,8 @@ The workspace has three distinct views: **Books**, **Questions** and **Answers**
 
 The reading list keeps full book names beside small cover previews. Compact citation buttons show a source ID and page, with a book number when more than one book is open. Open **Source book details** for filenames or click a citation to inspect the original page. **Check before using** shows distinct coverage gaps once. Loading counts appear only for operations with measured progress.
 
+The reader uses a single source toolbar: **Passages & screenshots**, **Figures & tables**, and **Book details**. Click a tool to open its contents; click it again, use Close, or press Escape within the tool to return to reading. The selected tool is remembered per question, and confirmed crops open the Figures tool. **Review notes** start expanded so missing details remain visible. Progress stays in a thin workspace line with Cancel. Routine success messages clear after seven seconds; errors remain until dismissed.
+
 ## Run locally
 
 Install Node.js 22 or newer, then run these commands in this folder:

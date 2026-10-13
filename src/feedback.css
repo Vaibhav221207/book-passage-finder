@@ -1,0 +1,262 @@
+/* Work belongs to the workspace: a line of feedback, never a floating card. */
+.passage-app .work-feedback {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 0 40px;
+  background: var(--bg);
+}
+
+.passage-app .work-feedback .progress-area {
+  position: relative;
+  inset: auto;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 0;
+  width: 100%;
+  margin: 0;
+  padding: 7px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.passage-app .work-feedback .progress-mark {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #a13a25;
+  font-family: Passage Display, sans-serif;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.passage-app .work-feedback .progress-area .progress-copy {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 15px;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.passage-app .work-feedback #progress-label {
+  font-family: Passage Display, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -.2px;
+  overflow-wrap: anywhere;
+}
+
+.passage-app .work-feedback #progress-detail {
+  min-height: 0;
+  color: #64645b;
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.passage-app .work-feedback .progress-area #cancel {
+  min-width: 62px;
+  min-height: 44px;
+  padding: 10px 5px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #68685c;
+  font-size: 12px;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-decoration-color: #aaa99a;
+  text-underline-offset: 4px;
+}
+
+.passage-app .work-feedback .progress-area #cancel:hover {
+  color: #933723;
+  text-decoration-color: currentColor;
+}
+
+.passage-app .work-feedback #progress {
+  grid-column: 1 / -1;
+  display: block;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  margin: 1px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #deded4;
+  accent-color: var(--accent);
+}
+
+.passage-app .work-feedback #progress::-webkit-progress-bar {
+  border-radius: 0;
+  background: #deded4;
+}
+
+.passage-app .work-feedback #progress::-webkit-progress-value {
+  border-radius: 0;
+  background: var(--accent);
+}
+
+.passage-app .work-feedback #progress::-moz-progress-bar {
+  border-radius: 0;
+  background: var(--accent);
+}
+
+/* The travelling rule communicates unknown duration without pretending to be a percentage. */
+.passage-app .work-feedback .progress-area:has(#progress:indeterminate)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 22%;
+  height: 3px;
+  background: var(--accent);
+  transform: translateX(0);
+  animation: passage-work-rule 1.7s linear infinite;
+  pointer-events: none;
+}
+
+.passage-app .work-feedback #progress:indeterminate {
+  opacity: 0;
+}
+
+.passage-app .work-feedback .progress-area:has(#progress:indeterminate)::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #deded4;
+  pointer-events: none;
+}
+
+@keyframes passage-work-rule {
+  to { transform: translateX(354%); }
+}
+
+.passage-app .work-feedback .message-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+}
+
+.passage-app .work-feedback .message-line .message {
+  position: relative;
+  flex: 1;
+  max-width: none;
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 7px 0 7px 30px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #4f5146;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.passage-app .work-feedback .message-line .message::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 20px;
+  color: #597044;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.passage-app .work-feedback .message-line .message.error {
+  border: 0;
+  background: transparent;
+  color: #9b2c1b;
+}
+
+.passage-app .work-feedback .message-line .message.error::before {
+  content: '!';
+  color: #9b2c1b;
+}
+
+.passage-app .work-feedback #dismiss-message {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #767669;
+  font-size: 21px;
+  line-height: 1;
+}
+
+.passage-app .work-feedback #dismiss-message:hover {
+  color: var(--ink);
+}
+
+.passage-app.is-busy .work-feedback .message-line,
+.passage-app .work-feedback:has(.progress-area:not([hidden])) .message-line,
+.passage-app .work-feedback .message-line:has(#message[hidden]),
+.passage-app .work-feedback .progress-area[hidden],
+.passage-app .work-feedback .message-line[hidden] {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .passage-app .work-feedback { padding-right: 25px; padding-left: 25px; }
+}
+
+@media (max-width: 560px) {
+  .passage-app .work-feedback { padding-right: 20px; padding-left: 20px; }
+  .passage-app .work-feedback .progress-area { column-gap: 9px; padding-top: 5px; }
+  .passage-app .work-feedback .progress-area .progress-copy { flex-direction: column; gap: 2px; padding: 9px 0; }
+  .passage-app .work-feedback #progress-label { font-size: 13px; }
+  .passage-app .work-feedback #progress-detail { font-size: 11px; }
+  .passage-app .work-feedback .message-line { gap: 7px; }
+  .passage-app .work-feedback .message-line .message { font-size: 12px; padding-left: 29px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .passage-app .work-feedback .progress-area:has(#progress:indeterminate)::after {
+    animation: none;
+    transform: translateX(177%);
+  }
+}
+
+@media (forced-colors: active) {
+  .passage-app .work-feedback #progress { border: 1px solid CanvasText; }
+  .passage-app .work-feedback .progress-area:has(#progress:indeterminate)::before { background: CanvasText; }
+  .passage-app .work-feedback .progress-area:has(#progress:indeterminate)::after { background: Highlight; }
+  .passage-app .work-feedback .message-line .message,
+  .passage-app .work-feedback .message-line .message::before,
+  .passage-app .work-feedback .message-line .message.error,
+  .passage-app .work-feedback .message-line .message.error::before { color: CanvasText; }
+}
