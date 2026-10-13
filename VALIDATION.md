@@ -1,5 +1,13 @@
 # Verification record
 
+## Clean assignment PDF — 13 October 2026
+
+- The PDF exporter now separates study content from app review data. It omits missing-detail lists, coverage warnings, partial-match advice, technical source-mapping headings and repeated raw evidence text after a chosen answer. Review metadata remains intact in the app. Raw passages still export when no usable draft exists.
+- Book answers use compact B1/B2, printed-page and physical-PDF-page references. Several passage IDs from the same book/page produce one section citation. Only cited books appear in a final cleaned References list, with duplicate filenames distinguished by stable book ordinals. Current corrected page labels replace stale labels. Unknown cited sources and removed books reject export.
+- Original passage PNGs and only confirmed figures remain in the packet. General AI answers stay explicitly unverified, book-based AI stays labeled, and provider identifiers/fabricated sources do not export. Every later question starts a fresh page. References stays with its first book entry rather than being orphaned by pagination.
+- Updated obsolete export expectations and added eight regression cases. They failed against the former behavior before implementation; the final full suite passes 236 tests. JavaScript syntax, build and distribution verification pass: 269 assets /52.5 MB, with no textbook/private evaluation files.
+- A local two-question export using the actual concrete textbook has five pages, seven original crops, 288/110-word chosen answers, compact references and no review boilerplate. Its answer-page layout was rendered for inspection. Live browser export validation follows in the output report; the Node-only source rasterizer has existing font/JPX limitations, so its crops are not used as the fidelity proof.
+
 ## Compact book loader and simpler capture — 13 October 2026
 
 - Replaced the full-width loading rail with a small page-turning book, real count text and Cancel. The animation runs only during active visible work; reduced motion uses a static open book. Accessible progress semantics are retained.

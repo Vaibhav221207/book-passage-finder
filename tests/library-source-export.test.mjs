@@ -70,12 +70,14 @@ test('an explicit question figure reference searches every book without requirin
   assert.equal(figures.length,2);assert.deepEqual(figures.map(f=>f.bookId).sort(),['blue','red']);
 });
 
-test('a library PDF export identifies every loaded book and every repeated-page passage',async()=>{
+test('raw passages without a draft retain compact citations and cleaned final references',async()=>{
   const [red,blue]=books(),context={books:[red,blue]},r=result([passage(red,'Red source quotation.'),passage(blue,'Blue source quotation.')]);
   const text=await pdfText(await exportPacket(context,[r],{includeCrops:false}));
-  assert.ok(text.includes('Red handbook.pdf'));assert.ok(text.includes('Blue handbook.pdf'));
-  assert.match(text,/Red source quotation\.\s+Red handbook\.pdf.*Book 17.*PDF 1/);
-  assert.match(text,/Blue source quotation\.\s+Blue handbook\.pdf.*Book 17.*PDF 1/);
+  assert.match(text,/Red source quotation\.\s+B1.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/Blue source quotation\.\s+B2.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/References.*B1.*Red handbook.*B2.*Blue handbook/);
+  assert.equal(text.split('Red handbook').length-1,1);assert.equal(text.split('Blue handbook').length-1,1);
+  assert.ok(!text.includes('.pdf'));assert.ok(!text.includes('Selected source passages'));
 });
 
 test('a library export rejects removed-book references even when crop export is disabled',async()=>{
@@ -86,8 +88,10 @@ test('a library export rejects removed-book references even when crop export is 
 test('exported citations distinguish separate books that share a filename and page label',async()=>{
   const red=book('red','Handbook.pdf','#ff0000'),blue=book('blue','Handbook.pdf','#0000ff'),r=result([passage(red,'Red source quotation.'),passage(blue,'Blue source quotation.')]);
   const text=await pdfText(await exportPacket({books:[red,blue]},[r],{includeCrops:false}));
-  assert.match(text,/Red source quotation\.\s+Handbook\.pdf \[Source 1\].*Book 17.*PDF 1/);
-  assert.match(text,/Blue source quotation\.\s+Handbook\.pdf \[Source 2\].*Book 17.*PDF 1/);
+  assert.match(text,/Red source quotation\.\s+B1.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/Blue source quotation\.\s+B2.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/References.*B1.*Handbook.*B2.*Handbook/);
+  assert.equal(text.split('Handbook').length-1,2);
 });
 
 test('a tall confirmed table uses a readable page-sized image without crossing page margins',async()=>{
@@ -100,18 +104,56 @@ test('a tall confirmed table uses a readable page-sized image without crossing p
   assert.equal(images.length,1);const image=images[0];assert.ok(image.height>400,'Long table rows must remain readable in the exported PDF');assert.ok(image.x>=40&&image.y>=40);assert.ok(image.x+image.width<=image.pageWidth-39);assert.ok(image.y+image.height<=image.pageHeight-40);
 });
 
-test('book-grounded generated drafts export section source maps separately from quotations',async()=>{
+test('book-grounded generated drafts export clean section citations without mapping tables or review notes',async()=>{
   const [red,blue]=books(),r=result([]);r.explanation={title:'Why the apparatus works',mode:'book',model:'test-model',sections:[{heading:'Mechanism',text:'A generated explanation of the experiment.',sourceIds:['S2']}],missingDetails:['The speed is absent.'],sources:[{id:'S2',bookId:blue.id,bookName:blue.filename,pages:[blue.pages[0].ref],text:'The original source passage.'}]};
   const text=await pdfText(await exportPacket({books:[red,blue]},[r],{includeCrops:false}));
-  assert.match(text,/Generated.*(?:draft|explanation)/i);assert.ok(text.includes('A generated explanation of the experiment.'));
-  assert.match(text,/Mechanism.*S2/);assert.match(text,/S2.*Blue handbook\.pdf.*Book 17.*PDF 1/);assert.ok(text.includes('The speed is absent.'));
+  assert.match(text,/AI explanation/);assert.ok(text.includes('A generated explanation of the experiment.'));
+  assert.match(text,/Mechanism.*B2.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/References.*B2.*Blue handbook/);
+  assert.ok(!text.includes('S2')&&!text.includes('The speed is absent.')&&!text.includes('source mappings'));
+  assert.ok(!text.includes('Red handbook'), 'The unused loaded book stays out of the references');
 });
 
 test('general-knowledge drafts export as unverified without fabricated source mappings',async()=>{
   const r=result([]);r.explanation={title:'General explanation',mode:'general',model:'test-model',sections:[{heading:'Overview',text:'A general explanation without textbook evidence.',sourceIds:['S999']}],missingDetails:[],sources:[{id:'S999',bookId:'removed',bookName:'Invented handbook.pdf',pages:[{bookId:'removed',pdfPage:999}],text:'Fabricated source.'}]};
   const text=await pdfText(await exportPacket({books:books()},[r],{includeCrops:false}));
-  assert.match(text,/General knowledge.*unverified/i);assert.ok(text.includes('A general explanation without textbook evidence.'));
+  assert.match(text,/General AI answer \(unverified\)/);assert.ok(text.includes('A general explanation without textbook evidence.'));
   assert.ok(!text.includes('Invented'));assert.ok(!text.includes('S999'));assert.ok(!text.includes('PDF 999'));assert.ok(!text.includes('Fabricated source'));
+  assert.ok(!text.includes('References'));assert.ok(!text.includes('handbook'));
+});
+
+test('a chosen draft keeps original passage screenshots and only confirmed figures without duplicated prose',async()=>{
+  const [red,blue]=books(),r=result([passage(red,'Raw evidence is kept as a screenshot only.')]);
+  r.bookAnswer={mode:'extractive',title:'Answer from your books',sections:[{heading:'Method',text:'The chosen answer explains the experiment once.',sourceIds:['S1']}],sources:[{id:'S1',bookId:'red',pages:[red.pages[0].ref]}],missingDetails:['Internal review detail.']};
+  r.figures=[{bookId:'blue',page:blue.pages[0].ref,bounds:box,caption:'Fig. 2.3. Confirmed apparatus',confirmed:true},{bookId:'blue',page:blue.pages[0].ref,bounds:box,caption:'Unconfirmed figure',confirmed:false}];
+  const blob=await exportPacket({books:[red,blue]},[r]),lib=await pdfLibrary(),loading=lib.getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:true}),pdf=await loading.promise;
+  let text='',images=0;
+  try{for(let n=1;n<=pdf.numPages;n++){const page=await pdf.getPage(n);text+=(await page.getTextContent()).items.map(item=>item.str).join(' ')+' ';const ops=await page.getOperatorList();images+=ops.fnArray.filter(op=>op===lib.OPS.paintImageXObject).length;}}finally{await loading.destroy();}
+  assert.equal(images,2,'The selected passage crop and confirmed diagram both remain');
+  assert.equal(text.split('The chosen answer explains the experiment once.').length-1,1);
+  assert.ok(!text.includes('Raw evidence is kept')&&!text.includes('Internal review detail.')&&!text.includes('Unconfirmed figure'));
+  assert.ok(!text.includes('Original passage crops'));
+  assert.match(text,/Confirmed apparatus.*B2.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/References.*B1.*Red handbook.*B2.*Blue handbook/);
+});
+
+test('an uncited loaded book retains its library ordinal without appearing in final references',async()=>{
+  const red=book('red','Unused_Handbook.pdf','#ff0000'),blue=book('blue','Blue_Technology-Guide.pdf','#0000ff'),r=result([passage(blue)]);
+  const text=await pdfText(await exportPacket({books:[red,blue]},[r],{includeCrops:false}));
+  assert.match(text,/B2.*p\.\s*17.*PDF\s*1/);
+  assert.match(text,/References.*B2.*Blue Technology-Guide/);
+  assert.equal(text.split('Blue Technology-Guide').length-1,1);
+  assert.ok(!text.includes('B1')&&!text.includes('Unused')&&!text.includes('_')&&!text.includes('.pdf'));
+});
+
+test('one raw passage spanning multiple physical pages keeps every distinct current page reference',async()=>{
+  const [,blue]=books();blue.pages.push({ref:{bookId:'blue',bookName:blue.filename,pdfPage:2,printedLabel:'18'},runs:[]});blue.pageCount=2;
+  const raw=passage(blue,'The experiment continues across the page break.');
+  raw.segments.push({...raw.segments[0],page:{bookId:'blue',pdfPage:2,printedLabel:'stale'}},{...raw.segments[0]});
+  const text=await pdfText(await exportPacket({books:[blue]},[result([raw])],{includeCrops:false}));
+  assert.equal((text.match(/B1\s*·\s*p\.\s*17\s*·\s*PDF\s*1/g)||[]).length,1);
+  assert.equal((text.match(/B1\s*·\s*p\.\s*18\s*·\s*PDF\s*2/g)||[]).length,1);
+  assert.ok(!text.includes('stale'));assert.equal(text.split('Blue handbook').length-1,1);
 });
 
 // The dialog runs against a small DOM boundary; real canvases still generate its PNG.

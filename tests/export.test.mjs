@@ -7,7 +7,7 @@ test('PDF export embeds Unicode text, page references and only confirmed selecti
   const blob=await api.exportPacket(session,[result('φ = ½; density ρ = 2400 kg/m³.')]);
   const loading=(await pdfLibrary()).getDocument({data:new Uint8Array(await blob.arrayBuffer()),useSystemFonts:true}),pdf=await loading.promise;
   let text='';for(let n=1;n<=pdf.numPages;n++)text+=(await(await pdf.getPage(n)).getTextContent()).items.map(i=>i.str).join(' ');
-  assert.ok(text.includes('φ = ½'));assert.ok(text.includes('kg/m³'));assert.ok(text.includes('Book iv'));assert.ok(text.includes('PDF 7'));assert.ok(!text.includes('999'));assert.ok(text.includes('Partial'));await loading.destroy();
+  assert.ok(text.includes('φ = ½'));assert.ok(text.includes('kg/m³'));assert.match(text,/B1.*p\.\s*iv.*PDF\s*7/);assert.ok(!text.includes('999'));assert.ok(!text.includes('Partial'));assert.ok(!text.includes('Check the remaining details in the source.'));assert.ok(!text.includes('Selected source passages'));assert.ok(!text.includes('Original passage crops'));assert.ok(text.includes('References'));assert.equal(text.split('My textbook').length-1,1);assert.ok(!text.includes('My textbook.pdf'));await loading.destroy();
 });
 test('long exports paginate without drawing text outside margins and cancellation stops output',async()=>{
   assert.equal(typeof api.exportPacket,'function','exportPacket missing');

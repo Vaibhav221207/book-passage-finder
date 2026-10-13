@@ -254,7 +254,7 @@ function renderSourceTools(card,result,revision){
     const preview=node('details','source-preview');preview.append(node('summary','','Show original page crop'));wrap.insertBefore(preview,actions);let loaded=false;
     preview.addEventListener('toggle',async()=>{if(!preview.open||loaded)return;loaded=true;const loading=node('p','','Loading source crop…');preview.append(loading);
       try{const {cropSpan}=await import('./source-view.js'),crops=await cropSpan(library,passage,{scale:2});if(revision!==resultRevision)return;loading.remove();
-        for(const [n,crop]of crops.entries()){const img=node('img','source-crop');img.src=URL.createObjectURL(crop.blob);img.alt=`Original source: ${pageName(crop.page)}`;img.addEventListener('load',()=>URL.revokeObjectURL(img.src),{once:true});img.addEventListener('click',()=>viewSource(passage,null,result));preview.append(img,button('Download this screenshot',async()=>{const {downloadBlob}=await import('./export.js');downloadBlob(crop.blob,`passage-${i+1}-pdf-${crop.page.pdfPage}-${n+1}.png`);}));}
+        for(const [n,crop]of crops.entries()){const img=node('img','source-crop');img.src=URL.createObjectURL(crop.blob);img.alt=`Original source: ${pageName(crop.page)}`;img.addEventListener('load',()=>URL.revokeObjectURL(img.src),{once:true});img.addEventListener('click',()=>viewSource(passage,null,result));preview.append(img,button('Download this screenshot',async()=>{const {downloadBlob}=await import('./export.js?v=20261013-7');downloadBlob(crop.blob,`passage-${i+1}-pdf-${crop.page.pdfPage}-${n+1}.png`);}));}
       }catch{loading.textContent='Preview unavailable. Use View in book to check the page.';loaded=false;}
     });
   }
@@ -284,7 +284,7 @@ $('run-ocr').addEventListener('click',async()=>{
     Object.assign(book,update);controller.setBooks(state.books,book.id);message(`${pages.length-update.skipped.length} pages recognized. Check OCR against the originals, then search again.`);
   });renderLibrary();renderResults();
 });
-$('export').addEventListener('click',()=>operate(async signal=>{const {exportPacket,downloadBlob}=await import('./export.js');const blob=await exportPacket(context(),state.results,{signal,onProgress:progress});downloadBlob(blob,'book-passages.pdf');message(`Downloaded ${blob.pageCount} PDF pages with your selected answers and figures.`);}));
+$('export').addEventListener('click',()=>operate(async signal=>{const {exportPacket,downloadBlob}=await import('./export.js?v=20261013-7');const blob=await exportPacket(context(),state.results,{signal,onProgress:progress});downloadBlob(blob,'book-passages.pdf');message(`Downloaded ${blob.pageCount} PDF pages with your selected answers and figures.`);}));
 $('save-book').addEventListener('click',async()=>{try{const {saveBook}=await import('./storage.js');await saveBook(files.get(state.activeBookId));await refreshSaved();message('Book saved on this device.');}catch(e){message(`Unable to save here. ${e.message}`,true);}});
 $('saved-books').addEventListener('change',async e=>{if(!e.target.value)return;try{const {loadSavedBook}=await import('./storage.js');await addBooks([await loadSavedBook(e.target.value)]);}catch(e){message(e.message,true);}});
 $('delete-saved').addEventListener('click',async()=>{const id=$('saved-books').value;if(!id)return;const {deleteSavedBook}=await import('./storage.js');await deleteSavedBook(id);await refreshSaved();message('Saved copy deleted.');});
