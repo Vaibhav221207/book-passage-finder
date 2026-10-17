@@ -81,7 +81,8 @@ export function createBookStory({onUpload, onEnter}) {
     if (request !== generation || !enabled || dismissed || destroyed || motionOff) return;
     const {gsap, ScrollTrigger} = libraries;
     media = gsap.matchMedia();
-    media.add({wide: '(min-width: 850px)', tall: '(min-height: 720px)', reduce: '(prefers-reduced-motion: reduce)'}, context => {
+    // `all` also initializes tap-driven motion on short, narrow phones.
+    media.add({all: 'all', tall: '(min-height: 720px)', reduce: '(prefers-reduced-motion: reduce)'}, context => {
       if (context.conditions.reduce) { staticScene(3); return; }
       const scrollable = context.conditions.tall;
       root.classList.toggle('is-scrollable', scrollable);
