@@ -1,5 +1,15 @@
 # Verification record
 
+## Model-free local wording — 17 October 2026
+
+- Added a deterministic local editor for cited, exact book drafts, with no learned model, new dependency, text upload, inference call or daily counter. It applies reviewed surface phrases and a restricted laboratory time-clause template. Unsupported, quoted, mathematical, conditional, modal and negated material remains unchanged. Composition/dependency edits decline ambiguous coordination. These guards address specific failure classes; they do not prove semantic equivalence.
+- The primary **Rewrite locally / Free** action always starts from current book evidence, even when an AI draft is selected. **Use original** restores the extractive answer; a collapsed before/after review shows each edit. No supported change leaves the selected answer intact. Existing evidence and length invalidation discard old local wording. Optional AI retains its separate service and existing daily allowance.
+- UI, Copy and PDF distinguish **Locally rephrased**, exact **Book excerpts**, book-based **AI explanation** and unverified general AI. Copy/PDF retain current book/page references and omit change history and app review notes. Original crops and confirmed figures remain in the PDF.
+- Fresh source verification: 267/267 automated tests pass, including 31 additional cases for supported edits, refusal cases, source integrity, original/AI selection, repeated offline calls, Copy output and actual PDF contents. Two independent-review findings were reproduced with failing regressions and fixed: shared-copula grammar and spatial ordering misread as purpose. Independent recheck confirmed both fixes. JavaScript syntax, CSS parsing, build and distribution checks pass: 273 assets /52.5 MB, no private evaluation data.
+- A fixed breadth sample from the actual 647-page textbook used the first ten eligible source spans in each of ten physical-page strata: 100 compiled paragraphs, 7,744 words and 391 complete sentences. **No sentence changed.** Only two paragraphs contained a candidate phrase, and both were skipped for scope markers. This is evidence of very narrow coverage, not successful-paraphrase accuracy. Private source text and evaluation scripts are excluded from the repository, ZIP and deployment. Broader coverage needs a separate reviewed corpus; it must not come from weakening guards to raise an edit count.
+
+This first release is a limited local wording editor, not unlimited model-written answers. Missing textbook evidence remains missing. Production browser and export checks follow in the output validation report.
+
 ## Clean assignment PDF — 13 October 2026
 
 - The PDF exporter now separates study content from app review data. It omits missing-detail lists, coverage warnings, partial-match advice, technical source-mapping headings and repeated raw evidence text after a chosen answer. Review metadata remains intact in the app. Raw passages still export when no usable draft exists.

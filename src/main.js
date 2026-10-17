@@ -8,6 +8,8 @@ import {requestText} from './text-dialog.js';
 import {buildAnswerSources,requestExplanation} from './ai.js';
 import {findAnswerPassage} from './answer-source.js';
 import {compileBookAnswer} from './book-answer.js';
+import {applyLocalRewrite} from './local-rewrite-action.js';
+import {answerLabel,copyAnswerText} from './answer-output.js';
 import {requestManagedExplanation,getAnonymousClientId} from './managed-ai.js';
 import {MANAGED_AI_ENDPOINT} from './service-config.js';
 import {questionDestination,droppedBooks} from './studio.js?v=20261013-2';
@@ -180,7 +182,7 @@ function keyStatus(){
 }
 function serviceStatus(){
   const host=$('ai-service-status');if(!host)return;
-  host.textContent=apiKey?'Personal AI is connected. Book answers are always available.':!MANAGED_AI_ENDPOINT?'Book answers work without setup. Shared AI is not connected yet.':aiAllowance&&Date.parse(aiAllowance.resetAt)>Date.now()?`${aiAllowance.remaining} AI requests left in your daily allowance. Book answers are always available.`:'Shared AI: up to 8 requests daily, within the app allowance. No account or download needed.';
+  host.textContent=apiKey?'Local rephrasing has no daily limit. Personal AI is connected.':!MANAGED_AI_ENDPOINT?'Local rephrasing works without setup or a daily limit. Optional AI is not connected.':aiAllowance&&Date.parse(aiAllowance.resetAt)>Date.now()?`Local rephrasing has no daily limit. ${aiAllowance.remaining} optional AI requests left today.`:'Local rephrasing: no daily limit. Optional AI: up to 8 requests daily, within the app allowance.';
 }
 $('connect-ai').addEventListener('click',()=>{const key=$('ai-key').value.trim();if(!key){message('Paste your OpenRouter key in the advanced AI settings field.',true);$('ai-key').focus();return;}apiKey=key;$('ai-key').value='';keyStatus();renderResults();message('Personal AI connected for this tab.');});
 $('disconnect-ai').addEventListener('click',()=>{apiKey='';$('ai-key').value='';abortController?.abort();controller.cancel();keyStatus();renderResults();message('Personal key cleared. Book answers remain available.');});
@@ -202,20 +204,47 @@ function renderExplanation(card,result){
   const area=node('section','explanation-area');area.append(node('h4','','Your study answer'));
   const answer=result.explanation||result.bookAnswer;
   if(!answer)area.append(node('p','explanation-help',result.passages.length?'The selected passages do not contain complete sentences for a draft. Review the source or try AI.':result.status==='no-match'?'These books do not provide a reliable answer. Add another textbook or your lecture notes, or try an unverified general AI answer.':'No passages selected. Search again to restore book evidence, or capture directly from a source page.'));
-  const actions=node('div','explanation-actions'),aiButton=button(result.explanation?'Rewrite with AI':result.passages.length?'Improve with AI':'Try a general AI answer',()=>explain(result),'secondary');aiButton.dataset.needsAi='true';actions.append(aiButton);
+  const actions=node('div','explanation-actions');
+  if(result.bookAnswer){
+    const localButton=button('Rewrite locally',()=>{
+      try{
+        const rewrite=applyLocalRewrite(controller,result,{targetWords:targetWords()});
+        if(rewrite.status==='changed'){
+          const n=rewrite.answer.rewrite.changedSentences;renderResults();
+          $('results').querySelector('[data-answer-action="local-rewrite"]')?.focus({preventScroll:true});
+          message(`${n} sentence${n===1?'':'s'} rephrased on this device. No AI requests used.`);
+        }else if(rewrite.status==='unchanged')message('No supported local wording changes for these book sentences. Your current answer was kept.');
+        else if(rewrite.status==='unavailable')message('Local rephrasing needs complete textbook sentences. Add or review the book passages first.');
+      }catch(e){message(`Unable to rephrase locally. ${e.message}`,true);}
+    },'secondary local-rewrite-button');
+    localButton.dataset.answerAction='local-rewrite';localButton.setAttribute('aria-label','Rewrite locally, free with no daily limit');
+    localButton.title='Rephrases the selected book excerpts on this device. No model, AI request or daily quota.';
+    localButton.prepend(icon('write'));localButton.append(node('span','local-free-badge','Free'));actions.append(localButton);
+  }
+  const aiButton=button(result.passages.length?(result.explanation&&result.explanation.mode!=='local-rewrite'?'Rewrite with AI':'Use AI explanation'):'Try a general AI answer',()=>explain(result),result.bookAnswer?'text-button optional-ai-button':'secondary');aiButton.dataset.needsAi='true';actions.append(aiButton);
   aiButton.prepend(icon('write'));
   if(answer){
-    const label=answer.mode==='general'?'General AI answer · not verified against your books':answer.mode==='extractive'?'Organized textbook sentences · linked to the original pages':'AI explanation · based on the selected book passages';
-    const draft=node('div',`answer-draft ${answer.mode} ${answer.mode==='extractive'?'book-answer':''}`),words=answer.sections.reduce((n,s)=>n+wordCount(s.text),0);draft.append(node('p','answer-label',`${answer.mode==='general'?'General AI · unverified':answer.mode==='extractive'?'Book excerpts':'AI explanation'} · ${words} words`));if(answer.title&&answer.title!=='Answer from your books')draft.append(node('h4','',answer.title));
+    const draft=node('div',`answer-draft ${answer.mode} ${answer.mode==='extractive'?'book-answer':''}`),words=answer.sections.reduce((n,s)=>n+wordCount(s.text),0);draft.append(node('p','answer-label',`${answerLabel(answer)} · ${words} words`));if(answer.title&&answer.title!=='Answer from your books')draft.append(node('h4','',answer.title));
     for(const section of answer.sections){if(section.heading)draft.append(node('h5','',section.heading));draft.append(node('p','answer-text',section.text));
       const citations=node('div','answer-citations');for(const id of section.sourceIds){const source=answer.sources.find(s=>s.id===id);if(!source)continue;const reference=citationPresentation(source,state.books),link=button(reference.label,()=>{const passage=findAnswerPassage(result,source);if(passage)viewSource(passage,null,result);},'citation-link');link.title=reference.description;link.setAttribute('aria-label',`Open ${reference.description}`);citations.append(link);}if(citations.childNodes.length){citations.setAttribute('aria-label','Source pages for this paragraph');draft.append(citations);}
     }
-    actions.append(button('Copy answer',async()=>{try{const text=[label,answer.title,...answer.sections.map(s=>`${s.heading?s.heading+'\n':''}${s.text}${s.sourceIds.length?' ['+s.sourceIds.join(', ')+']':''}`),...(answer.missingDetails||[]),...answer.sources.map(s=>`[${s.id}] ${s.pages.map(pageName).join(' / ')}`)].join('\n\n');await navigator.clipboard.writeText(text);message('Answer copied with its source references.');}catch{message('Copy is unavailable here. Select the answer text to copy it.',true);}}));
+    if(answer.mode==='local-rewrite'&&answer.rewrite?.changes.length){
+      const review=node('details','rewrite-review'),n=answer.rewrite.changedSentences,list=node('ol');
+      review.append(node('summary','',`Review ${n} wording change${n===1?'':'s'}`));
+      for(const change of answer.rewrite.changes){
+        const item=node('li'),original=node('p','rewrite-before'),rewritten=node('p','rewrite-after');
+        original.append(node('span','rewrite-version','Original'),node('span','',change.before));
+        rewritten.append(node('span','rewrite-version','Rephrased'),node('span','',change.after));
+        item.append(original,rewritten);list.append(item);
+      }
+      review.append(list);draft.append(review);
+    }
+    actions.append(button('Copy answer',async()=>{try{await navigator.clipboard.writeText(copyAnswerText(answer,state.books));message('Answer copied with its source references.');}catch{message('Copy is unavailable here. Select the answer text to copy it.',true);}}));
     actions.lastElementChild?.prepend(icon('copy'));
-    if(result.explanation)actions.append(button('Use book answer',()=>{delete result.explanation;renderResults();}));area.append(draft);
+    if(result.explanation)actions.append(button(answer.mode==='local-rewrite'?'Use original':'Use book answer',()=>{delete result.explanation;renderResults();$('results').querySelector('[data-answer-action="local-rewrite"]')?.focus({preventScroll:true});}));area.append(draft);
   }
   const notes=displayCoverageNotes(answer,result,state.books);if(notes.length){const review=node('details','review-notes');review.open=reviewPanels.get(result)!==false;review.append(node('summary','',`Review notes · ${notes.length}`));review.addEventListener('toggle',()=>reviewPanels.set(result,review.open));const list=node('ul');for(const note of notes){const item=node('li','',note);for(const [index,book]of state.books.entries())if(note.startsWith(`${book.filename}: `)&&state.books.filter(b=>b.filename===book.filename).length===1){item.textContent=`Book ${index+1} · ${note.slice(book.filename.length+2)}`;item.title=note;break;}list.append(item);}review.append(list);area.append(review);}
-  const info=node('details','ai-info'),summary=node('summary');summary.setAttribute('aria-label','About AI answers and privacy');summary.title='About AI answers';summary.append(icon('info'));info.append(summary,node('p','',!MANAGED_AI_ENDPOINT&&!apiKey?'Shared AI is currently unavailable. Book answers work on your device.':`AI aims for about ${targetWords()} words, depending on available evidence. Clicking the AI button sends this question and selected text to ${apiKey?'OpenRouter':'our AI service'}; the full PDFs stay on your device. Book excerpts are exact source sentences. General AI answers are not verified against your books.`));
+  const info=node('details','ai-info'),summary=node('summary');summary.setAttribute('aria-label','About local rephrasing and AI');summary.title='About local rephrasing and AI';summary.append(icon('info'));info.append(summary,node('p','','Local rephrasing uses limited wording rules on your book excerpts. It runs on this device with no model, daily quota or text upload; uncertain sentences stay unchanged. Book excerpts are exact source sentences.'),node('p','',!MANAGED_AI_ENDPOINT&&!apiKey?'Optional AI is currently unavailable. Local book answers remain available.':`Optional AI aims for about ${targetWords()} words, depending on available evidence, and has its own allowance. Clicking an AI button sends the question and selected text to ${apiKey?'OpenRouter':'our AI service'}; the full PDFs stay on your device. General AI answers are unverified.`));
   actions.append(info);area.append(actions);card.append(area);
 }
 async function renderResults(){
@@ -254,7 +283,7 @@ function renderSourceTools(card,result,revision){
     const preview=node('details','source-preview');preview.append(node('summary','','Show original page crop'));wrap.insertBefore(preview,actions);let loaded=false;
     preview.addEventListener('toggle',async()=>{if(!preview.open||loaded)return;loaded=true;const loading=node('p','','Loading source crop…');preview.append(loading);
       try{const {cropSpan}=await import('./source-view.js'),crops=await cropSpan(library,passage,{scale:2});if(revision!==resultRevision)return;loading.remove();
-        for(const [n,crop]of crops.entries()){const img=node('img','source-crop');img.src=URL.createObjectURL(crop.blob);img.alt=`Original source: ${pageName(crop.page)}`;img.addEventListener('load',()=>URL.revokeObjectURL(img.src),{once:true});img.addEventListener('click',()=>viewSource(passage,null,result));preview.append(img,button('Download this screenshot',async()=>{const {downloadBlob}=await import('./export.js?v=20261013-7');downloadBlob(crop.blob,`passage-${i+1}-pdf-${crop.page.pdfPage}-${n+1}.png`);}));}
+        for(const [n,crop]of crops.entries()){const img=node('img','source-crop');img.src=URL.createObjectURL(crop.blob);img.alt=`Original source: ${pageName(crop.page)}`;img.addEventListener('load',()=>URL.revokeObjectURL(img.src),{once:true});img.addEventListener('click',()=>viewSource(passage,null,result));preview.append(img,button('Download this screenshot',async()=>{const {downloadBlob}=await import('./export.js?v=20261017-1');downloadBlob(crop.blob,`passage-${i+1}-pdf-${crop.page.pdfPage}-${n+1}.png`);}));}
       }catch{loading.textContent='Preview unavailable. Use View in book to check the page.';loaded=false;}
     });
   }
@@ -284,7 +313,7 @@ $('run-ocr').addEventListener('click',async()=>{
     Object.assign(book,update);controller.setBooks(state.books,book.id);message(`${pages.length-update.skipped.length} pages recognized. Check OCR against the originals, then search again.`);
   });renderLibrary();renderResults();
 });
-$('export').addEventListener('click',()=>operate(async signal=>{const {exportPacket,downloadBlob}=await import('./export.js?v=20261013-7');const blob=await exportPacket(context(),state.results,{signal,onProgress:progress});downloadBlob(blob,'book-passages.pdf');message(`Downloaded ${blob.pageCount} PDF pages with your selected answers and figures.`);}));
+$('export').addEventListener('click',()=>operate(async signal=>{const {exportPacket,downloadBlob}=await import('./export.js?v=20261017-1');const blob=await exportPacket(context(),state.results,{signal,onProgress:progress});downloadBlob(blob,'book-passages.pdf');message(`Downloaded ${blob.pageCount} PDF pages with your selected answers and figures.`);}));
 $('save-book').addEventListener('click',async()=>{try{const {saveBook}=await import('./storage.js');await saveBook(files.get(state.activeBookId));await refreshSaved();message('Book saved on this device.');}catch(e){message(`Unable to save here. ${e.message}`,true);}});
 $('saved-books').addEventListener('change',async e=>{if(!e.target.value)return;try{const {loadSavedBook}=await import('./storage.js');await addBooks([await loadSavedBook(e.target.value)]);}catch(e){message(e.message,true);}});
 $('delete-saved').addEventListener('click',async()=>{const id=$('saved-books').value;if(!id)return;const {deleteSavedBook}=await import('./storage.js');await deleteSavedBook(id);await refreshSaved();message('Saved copy deleted.');});

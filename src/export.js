@@ -1,5 +1,6 @@
 import {abortIfNeeded,tick,resolveResultReferences} from './model.js';import {cropSpan,cropFigure} from './source-view.js';
 import {bookSources,getBook} from './library.js';
+import {answerLabel} from './answer-output.js';
 let libraries;
 async function loadLibraries(){
   if(!libraries)libraries=(async()=>{if(typeof window==='undefined')return {pdf:await import('pdf-lib'),fontkit:(await import('@pdf-lib/fontkit')).default};
@@ -38,7 +39,7 @@ export async function exportPacket(context,results,{signal,onProgress=()=>{},inc
   function explanation(draft){
     const general=draft.mode==='general',sourceMap=new Map((draft.sources||[]).map(source=>[source.id,source]));
     if(general)write('General AI answer (unverified)',9,6);
-    else if(draft.mode!=='extractive')write('AI explanation',9,6);
+    else if(draft.mode!=='extractive')write(answerLabel(draft),9,6);
     for(const section of draft.sections||[]){
       if(!section.text?.trim())continue;
       if(section.heading)write(section.heading,11,5);write(section.text,11,6);

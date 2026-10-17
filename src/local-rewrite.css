@@ -1,0 +1,23 @@
+/* Local wording is the primary, reversible action; edit details stay optional. */
+.local-free-badge{font-size:11px;font-weight:600;line-height:1.2;padding:4px 7px;border:1px solid currentColor;border-radius:5px;opacity:.85}
+.passage-app .explanation-actions>.optional-ai-button{background:transparent;color:#5d6355;border-color:#c8cebc;font-weight:400}
+.passage-app .explanation-actions>.optional-ai-button:hover:not(:disabled){background:#e6eadf;border-color:#9ca88e}
+.rewrite-review{margin:20px 0 0;padding:0;border:0;max-width:74ch;background:none}
+.rewrite-review>summary{display:flex;align-items:center;gap:10px;width:fit-content;min-height:44px;padding:8px 0;font-family:Passage Display,sans-serif;font-size:14px;color:#42572f;cursor:pointer;list-style:none}
+.rewrite-review>summary::-webkit-details-marker{display:none}
+.rewrite-review>summary::before{content:'+';font-size:20px;width:17px;text-align:center}
+.rewrite-review[open]>summary::before{content:'−'}
+.rewrite-review>summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.rewrite-review>ol{list-style:none;padding:0;margin:8px 0 0}
+.rewrite-review li{padding:16px 0;border-top:1px solid #d2d6c8;overflow-wrap:anywhere}
+.rewrite-review li>p{display:grid;grid-template-columns:80px minmax(0,1fr);gap:12px;font-size:15px;line-height:1.75;margin:0;padding:5px 0;color:var(--ink)}
+.rewrite-review li>.rewrite-before{color:#64685c}
+.rewrite-review li>.rewrite-after{border-left:2px solid #879c6c;padding-left:12px;margin-top:7px;grid-template-columns:66px minmax(0,1fr)}
+.rewrite-version{font-family:Passage Display,sans-serif;font-size:11px;font-weight:500;padding-top:3px}
+@media(max-width:560px){
+  .passage-app .explanation-actions>.local-rewrite-button{flex-basis:100%;justify-content:center}
+  .rewrite-review li>p,.rewrite-review li>.rewrite-after{display:block;font-size:16px}
+  .rewrite-version{display:block;margin-bottom:3px;padding-top:0;font-size:12px}
+  .rewrite-review>summary{font-size:14px}
+}
+@media(forced-colors:active){.rewrite-review li>.rewrite-after{border-left-color:Highlight}.local-free-badge{opacity:1}}

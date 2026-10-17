@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="./src/feedback.css?v=20261013-6">
   <link rel="stylesheet" href="./src/artwork.css?v=20261013-6">
   <link rel="stylesheet" href="./src/capture.css?v=20261013-6">
+  <link rel="stylesheet" href="./src/local-rewrite.css?v=20261017-1">
 </head>
 <body class="passage-app" data-view="sources">
   <a class="skip-link" href="#workspace">Skip to workspace</a>
@@ -76,7 +77,7 @@
           <div class="length-setting"><label for="answer-length">How much detail?</label><select id="answer-length"><option value="200">Short · about 200 words</option><option value="300" selected>Standard · about 300 words</option><option value="450">Detailed · about 450 words</option></select></div>
           <p id="question-source-summary" class="question-source-summary">Add a textbook to find source-backed answers.</p><button class="text-button" type="button" data-view-target="sources">Manage books <span aria-hidden="true">↗</span></button>
           <div class="action-row"><button id="find" class="primary" type="button" disabled>Find my answers <span aria-hidden="true">↗</span></button></div>
-          <p id="ai-service-status" class="mode-note" role="status" aria-live="polite">Book answers work on your device. Optional AI has a shared daily allowance.</p>
+          <p id="ai-service-status" class="mode-note" role="status" aria-live="polite">Local rephrasing has no daily limit. Optional AI has a shared daily allowance.</p>
         </aside>
       </div>
       <details class="extra-tools advanced-options"><summary>More tools <span aria-hidden="true">+</span></summary><details id="ai-settings" class="ai-settings advanced-options">
@@ -94,6 +95,6 @@
     <footer class="app-footer"><a href="https://github.com/Vaibhav221207/book-passage-finder#use-it" target="_blank" rel="noopener noreferrer">Help</a><a href="https://github.com/Vaibhav221207/book-passage-finder#limits-and-privacy" target="_blank" rel="noopener noreferrer">Privacy</a></footer>
   </main>
   <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-head"><div><h2 id="source-title">Capture from book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div><div id="crop-controls"></div></dialog>
-  <script type="module" src="./src/main.js?v=20261013-7"></script>
+  <script type="module" src="./src/main.js?v=20261017-1"></script>
 </body>
 </html>
