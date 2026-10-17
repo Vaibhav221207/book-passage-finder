@@ -57,6 +57,7 @@ export function createBookStory({onUpload, onEnter}) {
   }
   function resetMotion() {
     generation++;
+    gsapStop();
     media?.revert();
     media = timeline = trigger = null;
     root.classList.remove('is-scrollable');
@@ -116,6 +117,9 @@ export function createBookStory({onUpload, onEnter}) {
         trigger = ScrollTrigger.create({trigger: root, start: 'top top', end: 'bottom bottom', animation: timeline, scrub: .35, invalidateOnRefresh: true});
       }
       return () => { trigger = timeline = null; root.classList.remove('is-scrollable'); };
+    });
+    document.fonts?.ready.then(() => {
+      if (request === generation && enabled && !dismissed && !destroyed) ScrollTrigger.refresh();
     });
   }
   function dismiss() {

@@ -15,7 +15,7 @@ import {MANAGED_AI_ENDPOINT} from './service-config.js';
 import {questionDestination,droppedBooks} from './studio.js?v=20261013-2';
 import {chooseWorkspaceView} from './workspace-flow.js';
 import {citationPresentation,displayCoverageNotes,progressPresentation} from './presentation.js?v=20261013-6';
-import {createBookStory} from './book-story.js?v=20261017-2';
+import {createBookStory} from './book-story.js?v=20261017-3';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();

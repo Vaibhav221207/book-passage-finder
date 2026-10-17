@@ -144,6 +144,12 @@ Cancellation from the final extraction progress callback can still resolve an in
 
 No supplied textbook or private evaluation excerpts are included in this repository or deployment.
 
+## Scroll story, 17 October 2026
+
+The opening uses an authored illustrative example, independent of actual retrieved answers. The self-hosted GSAP/ScrollTrigger timeline keeps native scrolling. At heights below 720 CSS pixels the chapter controls drive the scene without a tall scrolling region. Reduced motion uses static chapter states without loading GSAP. Upload and direct workspace entry remain available immediately; starting work dismisses the opening for the page session.
+
+The 270-test suite passes, including new controller checks for reduced motion without animation downloads, skipping while libraries are loading, and a failed library download leaving navigation usable. JavaScript syntax and CSS parsing pass; the build and distribution check pass with 278 assets / 52.7 MB. Checks do not measure rendering frame rates or physical-phone performance. Visual desktop/mobile and end-to-end checks for this introduction remain pending: the browser tool reports local browser use disabled in Work settings. The first deployment (ea3e88a, run 39008423001) succeeded, and the public HTML served its updated entry point.
+
 ## Assignment detection repair
 
 The reported screenshot counted an assignment title as Q1. The PDF importer also joined every page before parsing, which included cover/certificate text and attached later group headings to prior questions. Numeric decimal table cells could be mistaken for question labels.
