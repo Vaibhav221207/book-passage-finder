@@ -8,6 +8,7 @@ Pinned versions are recorded in package-lock.json. Dependency licenses remain in
 | pdf-lib | 1.17.1 | MIT | https://github.com/Hopding/pdf-lib |
 | @pdf-lib/fontkit | 1.1.1 | MIT | https://github.com/Hopding/fontkit |
 | Tesseract.js | 7.0.0 | Apache-2.0 | https://github.com/naptha/tesseract.js |
+| GSAP / ScrollTrigger | 3.14.2 | GSAP Standard License (no-charge, custom terms) | https://gsap.com/community/standard-license/ |
 | tesseract.js-core | 7.0.0 | Apache-2.0 | https://github.com/naptha/tesseract.js-core |
 | @napi-rs/canvas (test only) | 1.0.11 | MIT | https://github.com/Brooooooklyn/canvas |
 | Wrangler (owner deployment/dev tool only) | 4.149.0 | MIT OR Apache-2.0 | https://github.com/cloudflare/workers-sdk |

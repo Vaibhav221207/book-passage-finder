@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="./src/artwork.css?v=20261013-6">
   <link rel="stylesheet" href="./src/capture.css?v=20261013-6">
   <link rel="stylesheet" href="./src/local-rewrite.css?v=20261017-1">
+  <link rel="stylesheet" href="./src/book-story.css?v=20261017-2">
 </head>
 <body class="passage-app" data-view="sources">
   <a class="skip-link" href="#workspace">Skip to workspace</a>
@@ -24,6 +25,61 @@
       <button type="button" data-view-target="answers" disabled><span class="stage-number">03</span> Answers <span id="answer-count" class="stage-count" hidden>0</span></button>
     </nav>
   </header>
+  <section id="book-story" class="book-story" aria-label="From your book to your answer">
+    <div class="story-stage">
+      <div class="story-copy">
+        <div class="story-headlines">
+          <div class="story-chapter is-current" data-story-chapter="0">
+            <h1>Big books.<br><span>Small<br class="story-mobile-break"> deadlines.</span></h1>
+            <p>The answer is in there.<br>Let's find your page.</p>
+          </div>
+          <div class="story-chapter" data-story-chapter="1" aria-hidden="true">
+            <h2>A question.<br><span>A place<br>to start.</span></h2>
+            <p>Your assignment meets<br>your own reading list.</p>
+          </div>
+          <div class="story-chapter" data-story-chapter="2" aria-hidden="true">
+            <h2>Less haystack.<br><span>More<br>highlight.</span></h2>
+            <p>Find the passage.<br>Keep the page it came from.</p>
+          </div>
+          <div class="story-chapter" data-story-chapter="3" aria-hidden="true">
+            <h2>The good part.<br><span>In your<br>hands.</span></h2>
+            <p>Read the answer.<br>Go straight back to its source.</p>
+          </div>
+        </div>
+        <div class="story-actions">
+          <button id="story-upload" class="primary" type="button">Bring your books <span aria-hidden="true">↗</span></button>
+          <a id="story-skip" href="#workspace">Open workspace <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+      <div class="story-art" aria-hidden="true">
+        <div class="story-orbit"></div>
+        <div class="story-book">
+          <div class="story-left-page"><span>STUDY NOTES</span><strong>It starts<br>with a<br>question.</strong><div class="story-ruled"></div><small>04</small></div>
+          <div class="story-right-page">
+            <span class="story-running-head">MATERIALS / AN INTRODUCTION</span>
+            <h3>Concrete,<br>in a nutshell.</h3>
+            <p>Different materials have different roles. A useful place to start is what each part contributes.</p>
+            <div class="story-excerpt"><i class="story-highlight"></i><p>Concrete is made from cement, water, fine aggregate and coarse aggregate.</p></div>
+            <p class="story-page-extra">Together, these ingredients form a material that can be shaped while fresh and gains strength as it hardens.</p>
+            <small class="story-page-number">05</small>
+          </div>
+          <div class="story-cover"><span>THE<br>TEXT<br>BOOK.</span><div class="story-cover-rule"></div><small>A LITTLE CLOSER TO THE ANSWER.</small><b>[b]</b></div>
+        </div>
+        <div class="story-question"><span>YOUR QUESTION</span><p>What are the basic<br>components of concrete?</p><i>?</i></div>
+        <div class="story-answer"><div class="story-answer-top"><span>THE ANSWER</span><i>↗</i></div><h3>Four ingredients.<br>One starting point.</h3><p>Concrete is made from cement, water, fine aggregate and coarse aggregate.</p><div class="story-answer-cite"><span>Source</span><strong>Study notes · p. 05</strong></div></div>
+        <span class="story-example">Illustrative example</span>
+      </div>
+      <div class="story-footer">
+        <div class="story-steps" role="group" aria-label="Explore the example">
+          <button type="button" data-story-step="0" aria-pressed="true"><span>01</span> Book</button>
+          <button type="button" data-story-step="1" aria-pressed="false"><span>02</span> Question</button>
+          <button type="button" data-story-step="2" aria-pressed="false"><span>03</span> Passage</button>
+          <button type="button" data-story-step="3" aria-pressed="false"><span>04</span> Answer</button>
+        </div>
+        <button id="story-motion" type="button" aria-pressed="false">Motion off</button>
+      </div>
+    </div>
+  </section>
   <div class="work-feedback" aria-label="Workspace status">
     <div class="progress-area" id="progress-area" hidden><span class="progress-mark" aria-hidden="true"><span class="loader-book"><i class="loader-page"></i><i class="loader-page"></i><i class="loader-page"></i></span></span><div class="progress-copy"><span id="progress-label" role="status" aria-live="polite">Getting things ready</span><span id="progress-detail">Working on your device</span></div><button id="cancel" class="text-button" type="button">Cancel</button><progress id="progress" max="100" aria-labelledby="progress-label" aria-describedby="progress-detail"></progress></div>
     <div id="message-line" class="message-line" hidden><p id="message" class="message" role="status" aria-live="polite" hidden></p><button id="dismiss-message" type="button" aria-label="Dismiss status message">×</button></div>
@@ -33,15 +89,10 @@
       <div id="book-dropzone" class="book-dropzone">
         <div class="source-hero">
           <div class="source-intro">
-            <h1 id="sources-heading" tabindex="-1">Big books.<br><span>Small deadlines.</span><i aria-hidden="true">↘</i></h1>
-            <div class="intro-bottom"><p>Find the right pages.<br> Understand the answer.</p></div>
+            <h1 id="sources-heading" tabindex="-1">Your books.<br><span>Your starting point.</span></h1>
+            <div class="intro-bottom"><p>Bring a textbook, lecture notes,<br>or your whole reading list.</p></div>
           </div>
           <label class="upload-object" for="book-file">
-            <span class="book-sculpture" aria-hidden="true">
-              <span class="sculpture-book book-a"><span>FIELD<br>NOTES</span><i>01</i></span>
-              <span class="sculpture-book book-b"><span>THE<br>TEXT<br>BOOK.</span><i>OPEN / STUDY / REPEAT</i></span>
-              <span class="sculpture-book book-c"><span>THE<br>GOOD<br>PART.</span><i>↗</i></span>
-            </span>
             <span class="upload-caption"><span><strong id="book-title">Drop your textbooks here</strong><span id="book-detail">One PDF or a whole reading list.</span></span><span class="upload-plus" aria-hidden="true">+</span></span>
             <span class="choose-label">Browse PDF files <span aria-hidden="true">↗</span></span>
             <input id="book-file" type="file" accept="application/pdf,.pdf" multiple aria-describedby="book-detail">
@@ -95,6 +146,6 @@
     <footer class="app-footer"><a href="https://github.com/Vaibhav221207/book-passage-finder#use-it" target="_blank" rel="noopener noreferrer">Help</a><a href="https://github.com/Vaibhav221207/book-passage-finder#limits-and-privacy" target="_blank" rel="noopener noreferrer">Privacy</a></footer>
   </main>
   <dialog id="source-dialog" aria-labelledby="source-title"><div class="dialog-head"><div><h2 id="source-title">Capture from book</h2></div><button id="close-source" class="secondary" type="button">Close</button></div><div id="source-controls"></div><div id="source-scroll" class="source-scroll"><div id="source-stage"></div></div><div id="crop-controls"></div></dialog>
-  <script type="module" src="./src/main.js?v=20261017-1"></script>
+  <script type="module" src="./src/main.js?v=20261017-2"></script>
 </body>
 </html>

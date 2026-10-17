@@ -15,12 +15,14 @@ import {MANAGED_AI_ENDPOINT} from './service-config.js';
 import {questionDestination,droppedBooks} from './studio.js?v=20261013-2';
 import {chooseWorkspaceView} from './workspace-flow.js';
 import {citationPresentation,displayCoverageNotes,progressPresentation} from './presentation.js?v=20261013-6';
+import {createBookStory} from './book-story.js?v=20261017-2';
 
 const $=id=>document.getElementById(id),controller=createController(),state=controller.state;
 const files=new Map();
 const bookCovers=new WeakMap();
 const sourcePanels=new WeakMap(),reviewPanels=new WeakMap();
 let worker,libraryId,abortController,resultRevision=0,apiKey='',sourceOpening=false,aiAllowance,messageTimer;
+let bookStory;
 const context=()=>({books:state.books});
 const targetWords=()=>Number($('answer-length').value)||300;
 const node=(tag,className='',text='')=>{const n=document.createElement(tag);n.className=className;if(text)n.textContent=text;return n;};
@@ -38,6 +40,8 @@ $('dismiss-message').addEventListener('click',()=>message(''));
 function showWorkspace(requested,{focus=false,animate=false}={}){
   const previous=document.body.dataset.view||'sources',view=chooseWorkspaceView(requested,{current:previous,books:state.books.length,results:state.results.length,busy:!!state.activeJob});
   document.body.dataset.view=view;
+  if(focus)bookStory?.dismiss();
+  bookStory?.setEnabled(view==='sources'&&!state.books.length&&!state.activeJob);
   for(const panel of document.querySelectorAll('[data-workspace-view]'))panel.hidden=panel.dataset.workspaceView!==view;
   for(const control of document.querySelectorAll('[data-view-target]')){
     control.disabled=!!state.activeJob||(control.dataset.viewTarget==='answers'&&!state.results.length);
@@ -119,7 +123,8 @@ function renderLibrary(){
 }
 async function addBooks(selected){
   if(!selected.length||state.activeJob)return;
-  showWorkspace('sources');
+  bookStory?.dismiss();
+  showWorkspace('sources',{focus:true});
   await operate(async(signal,job)=>{
     const failures=[];
     for(const file of selected){
@@ -324,5 +329,6 @@ $('page-label').addEventListener('click',async()=>{
   if(label===null||!state.books.includes(book))return;book.pages[n-1].ref.printedLabel=label.trim()||null;resolveResultReferences(context(),state.results);renderResults();
 });
 $('close-source').addEventListener('click',()=>$('source-dialog').close());
-window.addEventListener('beforeunload',()=>{apiKey='';abortController?.abort();worker?.terminate();for(const book of state.books)book.dispose();});
+window.addEventListener('beforeunload',()=>{bookStory?.destroy();apiKey='';abortController?.abort();worker?.terminate();for(const book of state.books)book.dispose();});
+bookStory=createBookStory({onUpload:()=>{if(!state.activeJob)$('book-file').click();},onEnter:()=>showWorkspace('sources',{focus:true})});
 updateControls();refreshSaved();keyStatus();
